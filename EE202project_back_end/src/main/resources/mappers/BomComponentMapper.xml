@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.project.bom.dao.BomComponentDAO">
+
+    <insert id="insertBomComponent" parameterType="com.project.bom.model.BomComponent"> INSERT INTO
+        bom_components (parent_material_id, component_material_id, quantity, notes,
+        effective_start_date, effective_end_date, created_at, updated_at) VALUES
+        (#{parentMaterialId, jdbcType=BIGINT}, #{componentMaterialId, jdbcType=BIGINT}, #{quantity},
+        #{notes}, #{effectiveStartDate, jdbcType=TIMESTAMP}, #{effectiveEndDate,
+        jdbcType=TIMESTAMP}, GETDATE(), GETDATE()) </insert>
+
+    <select id="getBomComponentById" resultType="com.project.bom.model.BomComponent"> SELECT bom_component_id AS bomComponentId, parent_material_id AS parentMaterialId, component_material_id AS componentMaterialId, quantity, notes, effective_start_date AS effectiveStartDate, effective_end_date AS effectiveEndDate, created_at AS createdAt, updated_at AS updatedAt FROM
+        bom_components WHERE bom_component_id = #{bomComponentId, jdbcType=BIGINT} </select>
+
+    <select id="getBomComponentsByParentMaterialId" resultType="com.project.bom.model.BomComponent">
+        SELECT bom_component_id AS bomComponentId, parent_material_id AS parentMaterialId,
+        component_material_id AS componentMaterialId, quantity, notes, effective_start_date AS
+        effectiveStartDate, effective_end_date AS effectiveEndDate, created_at AS createdAt,
+        updated_at AS updatedAt FROM bom_components WHERE parent_material_id = #{parentMaterialId,
+        jdbcType=BIGINT} </select>
+
+    <update id="updateBomComponent" parameterType="com.project.bom.model.BomComponent"> UPDATE
+        bom_components SET component_material_id = #{componentMaterialId, jdbcType=BIGINT}, quantity = #{quantity}, notes = #{notes}, updated_at = GETDATE() WHERE
+        bom_component_id = #{bomComponentId, jdbcType=BIGINT} </update>
+
+    <delete id="deleteBomComponent"> DELETE FROM bom_components WHERE bom_component_id =
+        #{bomComponentId, jdbcType=BIGINT} </delete>
+
+</mapper>
