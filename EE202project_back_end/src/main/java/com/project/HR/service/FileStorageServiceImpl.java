@@ -6,6 +6,7 @@ import com.project.HR.exception.MyFileNotFoundException;
 
 import lombok.AllArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -19,12 +20,12 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-@AllArgsConstructor // lombok自動DI
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
     private final Path fileStorageLocation;
-    
+
+    @Autowired
     public FileStorageServiceImpl(FileStorageProperties properties) {
         // 1. 透過Configuration從application.properties 取得資料夾路徑字串->絕對路徑
         this.fileStorageLocation = Paths.get(properties.getUploadDir()).toAbsolutePath();
@@ -50,12 +51,13 @@ public class FileStorageServiceImpl implements FileStorageService {
             fileExtension = "";
         }
 
-        // 3. 拼接安全檔案名稱
+        // 3. 拼接安全檔案名稱 + 產生檔案路徑
         String storedFileName = UUID.randomUUID().toString() + fileExtension;
+        Path fileStorePath = this.fileStorageLocation.resolve(storedFileName);
 
         try {
             // 4. 從前端儲存檔案到本地端
-            Files.copy(file.getInputStream(), fileStorageLocation, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), fileStorePath, StandardCopyOption.REPLACE_EXISTING);
             // 5. 回傳檔案名稱
             return storedFileName;
         } catch (Exception e) {

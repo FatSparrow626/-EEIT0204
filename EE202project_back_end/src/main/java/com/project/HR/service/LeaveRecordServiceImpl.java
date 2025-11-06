@@ -342,6 +342,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         return totalEntitlementHours - usedHours;
     }
 
+    
     public Optional<LeaveRecordDto> updateLeaveStatus(String uuid, String status, String reason) {
         return leaveRecordRepository.findByUuid(uuid)
                 .map(existingRecord -> {
