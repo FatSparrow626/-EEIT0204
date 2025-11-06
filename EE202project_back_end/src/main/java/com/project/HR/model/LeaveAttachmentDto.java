@@ -14,6 +14,5 @@ public class LeaveAttachmentDto {
     private String storedFileName;
     private String fileType;
     private long fileSize;
-    private String downloadUrl;
-
+    private String downloadUrl; // 下載網址 ->不做持久化
 }

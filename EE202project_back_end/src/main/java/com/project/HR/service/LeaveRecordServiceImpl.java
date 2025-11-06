@@ -49,13 +49,14 @@ import com.project.core.security.EmployeeUserDetails;
 import com.project.employeeuser.dao.EmployeeUserDAO;
 import com.project.employeeuser.model.EmployeeUser;
 
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.persistence.EntityManager; // Add this import
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.PersistenceContext; // Add this import
 import jakarta.persistence.criteria.Predicate;
 import lombok.AllArgsConstructor;
 
-@AllArgsConstructor //lombok 自動DI
+@AllArgsConstructor // lombok 自動DI
 @Service
 public class LeaveRecordServiceImpl implements LeaveRecordService {
 
@@ -74,46 +75,33 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
     @PersistenceContext
     private EntityManager entityManager;
 
-//    @Autowired
-//    public LeaveRecordServiceImpl(
-//            LeaveRecordRepository leaveRecordRepository,
-//            LeaveTypeRepository leaveTypeRepository,
-//            EmployeeUserDAO employeeUserDAO,
-//            LeaveStatusRepository leaveStatusRepository,
-//            NationalHolidayRepository nationalHolidayRepository,
-//            AnnualLeaveService annualLeaveService,
-//            FileStorageService fileStorageService,
-//            LeaveAttachmentRepository leaveAttachmentRepository,
-//            EmailService emailService) { // Add EmailService to constructor
-//        this.leaveRecordRepository = leaveRecordRepository;
-//        this.leaveTypeRepository = leaveTypeRepository;
-//        this.employeeUserDAO = employeeUserDAO;
-//        this.leaveStatusRepository = leaveStatusRepository;
-//        this.nationalHolidayRepository = nationalHolidayRepository;
-//        this.annualLeaveService = annualLeaveService;
-//        this.fileStorageService = fileStorageService;
-//        this.leaveAttachmentRepository = leaveAttachmentRepository;
-//        this.emailService = emailService; // Initialize EmailService
-//    }
+    // 如果沒用lombok就要constructor DI
+    // @Autowired
+    // public LeaveRecordServiceImpl(
+    // LeaveRecordRepository leaveRecordRepository, and so on...
 
     public LeaveAttachmentDto storeAttachment(String leaveRecordUuid, MultipartFile file) {
+
         LeaveRecord leaveRecord = leaveRecordRepository.findByUuid(leaveRecordUuid)
                 .orElseThrow(() -> new EntityNotFoundException("找不到指定uuid為: " + leaveRecordUuid + " 的假單"));
-
         String storedFileName = fileStorageService.store(file, leaveRecordUuid);
 
+        // 建立持久化物件->DB
         LeaveAttachment attachment = new LeaveAttachment();
-        attachment.setLeaveRecord(leaveRecord);
-        attachment.setFileName(file.getOriginalFilename());
-        attachment.setStoredFileName(storedFileName);
+        attachment.setLeaveRecord(leaveRecord); // 建立附件與指定uuid假單的關聯
+        attachment.setFileName(file.getOriginalFilename()); // 前端上傳檔名
+        attachment.setStoredFileName(storedFileName); // 本地檔名
         attachment.setFileType(file.getContentType());
         attachment.setFileSize(file.getSize());
 
+        // 使用Spring data 操作DB
         LeaveAttachment savedAttachment = leaveAttachmentRepository.save(attachment);
 
+        // 回傳DTO
         return convertToDto(savedAttachment);
     }
 
+    // 將entity轉DTO，同時用spring web 的 api產生下載連結(/localhost:8080 + /api/leave/attachments/ + <leaveUuid> +/+ <storedFileName>)
     private LeaveAttachmentDto convertToDto(LeaveAttachment attachment) {
         String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/leave/attachments/")
@@ -122,7 +110,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
                 .path(attachment.getStoredFileName())
                 .toUriString();
 
-        // If the attachment is an image, add the 'inline' flag for previewing
+        // 如果是圖片檔就加上inline查詢參數讓前端可以直接預覽
         if (attachment.getFileType() != null && attachment.getFileType().startsWith("image/")) {
             downloadUrl += "?inline=true";
         }
@@ -169,17 +157,18 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
             if (currentUser.getManagerEmployeeUserId() != null) {
                 employeeUserDAO.findById(currentUser.getManagerEmployeeUserId()).ifPresent(manager -> {
                     if (manager.getEmail() != null && !manager.getEmail().isEmpty()) {
-                        String subject = String.format("[請假審核通知] 員工 %s %s 提交了請假申請", currentUser.getLastName(), currentUser.getFirstName());
+                        String subject = String.format("[請假審核通知] 員工 %s %s 提交了請假申請", currentUser.getLastName(),
+                                currentUser.getFirstName());
                         String text = String.format(
-                            "您好，\n\n員工 %s %s 已提交新的請假申請。\n\n請點擊下方連結登入系統進行審核：\nhttp://localhost:5173/kh/leave/list\n\n此為系統自動發送，請勿直接回覆。",
-                            currentUser.getLastName(), currentUser.getFirstName()
-                        );
+                                "您好，\n\n員工 %s %s 已提交新的請假申請。\n\n請點擊下方連結登入系統進行審核：\nhttp://localhost:5173/kh/leave/list\n\n此為系統自動發送，請勿直接回覆。",
+                                currentUser.getLastName(), currentUser.getFirstName());
                         emailService.sendSimpleMail(manager.getEmail(), subject, text);
                     }
                 });
             }
         } catch (Exception e) {
-            logger.error("Failed to send leave application notification email for record UUID: {}", savedRecord.getUuid(), e);
+            logger.error("Failed to send leave application notification email for record UUID: {}",
+                    savedRecord.getUuid(), e);
         }
         // --- END OF EMAIL NOTIFICATION ---
 
@@ -197,12 +186,14 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
                     final int MAX_ATTACHMENTS = 5;
                     final long MAX_TOTAL_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
-                    List<String> attachmentsToDelete = updateRequest.getAttachmentsToDelete() != null ? updateRequest.getAttachmentsToDelete() : Collections.emptyList();
-                    
+                    List<String> attachmentsToDelete = updateRequest.getAttachmentsToDelete() != null
+                            ? updateRequest.getAttachmentsToDelete()
+                            : Collections.emptyList();
+
                     // Validate total attachment count
                     long currentAttachmentCount = existingRecord.getAttachments().stream()
-                        .filter(att -> !attachmentsToDelete.contains(att.getStoredFileName()))
-                        .count();
+                            .filter(att -> !attachmentsToDelete.contains(att.getStoredFileName()))
+                            .count();
                     long newAttachmentCount = (newAttachments != null) ? newAttachments.size() : 0;
                     if (currentAttachmentCount + newAttachmentCount > MAX_ATTACHMENTS) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "附件總數不得超過 " + MAX_ATTACHMENTS + " 個");
@@ -210,10 +201,12 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
 
                     // Validate total attachment size
                     long currentAttachmentSize = existingRecord.getAttachments().stream()
-                        .filter(att -> !attachmentsToDelete.contains(att.getStoredFileName()))
-                        .mapToLong(LeaveAttachment::getFileSize)
-                        .sum();
-                    long newAttachmentSize = (newAttachments != null) ? newAttachments.stream().mapToLong(MultipartFile::getSize).sum() : 0;
+                            .filter(att -> !attachmentsToDelete.contains(att.getStoredFileName()))
+                            .mapToLong(LeaveAttachment::getFileSize)
+                            .sum();
+                    long newAttachmentSize = (newAttachments != null)
+                            ? newAttachments.stream().mapToLong(MultipartFile::getSize).sum()
+                            : 0;
                     if (currentAttachmentSize + newAttachmentSize > MAX_TOTAL_SIZE_BYTES) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "附件總大小不得超過50MB");
                     }
@@ -328,6 +321,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         return Math.round(totalHours * 2) / 2.0;
     }
 
+    // 尚未實作
     public double getAnnualLeaveBalance(EmployeeUser currentUser) {
         double totalEntitlementDays = annualLeaveService.calculateAnnualLeaveEntitlementDays(currentUser.getHireDate());
         double totalEntitlementHours = annualLeaveService.convertDaysToHours(totalEntitlementDays);
@@ -372,16 +366,16 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
                             String subject = String.format("[請假狀態更新] 您的請假申請已%s", statusInChinese);
                             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
                             String text = String.format(
-                                "您好，\n\n您提交的請假申請（期間：%s - %s）已被主管%s。\n\n詳情請點擊下方連結查看：\nhttp://localhost:5173/kh/leave/edit/%s\n\n此為系統自動發送，請勿直接回覆。",
-                                existingRecord.getStartDatetime().format(formatter),
-                                existingRecord.getEndDatetime().format(formatter),
-                                statusInChinese,
-                                existingRecord.getUuid()
-                            );
+                                    "您好，\n\n您提交的請假申請（期間：%s - %s）已被主管%s。\n\n詳情請點擊下方連結查看：\nhttp://localhost:5173/kh/leave/edit/%s\n\n此為系統自動發送，請勿直接回覆。",
+                                    existingRecord.getStartDatetime().format(formatter),
+                                    existingRecord.getEndDatetime().format(formatter),
+                                    statusInChinese,
+                                    existingRecord.getUuid());
                             emailService.sendSimpleMail(applicant.getEmail(), subject, text);
                         }
                     } catch (Exception e) {
-                        logger.error("Failed to send leave status update email for record UUID: {}", updatedRecord.getUuid(), e);
+                        logger.error("Failed to send leave status update email for record UUID: {}",
+                                updatedRecord.getUuid(), e);
                     }
                     // --- END OF EMAIL NOTIFICATION ---
 
@@ -507,7 +501,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         try {
             // Delete the database record using the repository
             leaveAttachmentRepository.delete(attachment);
-            System.out.println("DEBUG: Database record deleted successfully for: " + attachment.getStoredFileName() 
+            System.out.println("DEBUG: Database record deleted successfully for: " + attachment.getStoredFileName()
                     + " using leaveAttachmentRepository.delete().");
         } catch (Exception e) {
             System.err.println("ERROR: Failed to delete database record for " + attachment.getStoredFileName() + ": "

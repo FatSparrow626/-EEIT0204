@@ -3,11 +3,12 @@ package com.project.HR.service;
 import com.project.HR.config.FileStorageProperties;
 import com.project.HR.exception.FileStorageException;
 import com.project.HR.exception.MyFileNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.AllArgsConstructor;
+
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -18,50 +19,49 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
+@AllArgsConstructor // lombok自動DI
 @Service
 public class FileStorageServiceImpl implements FileStorageService {
 
     private final Path fileStorageLocation;
-
-    @Autowired
-    public FileStorageServiceImpl(FileStorageProperties fileStorageProperties) {
-        this.fileStorageLocation = Paths.get(fileStorageProperties.getUploadDir())
-                .toAbsolutePath().normalize();
+    
+    public FileStorageServiceImpl(FileStorageProperties properties) {
+        // 1. 透過Configuration從application.properties 取得資料夾路徑字串->絕對路徑
+        this.fileStorageLocation = Paths.get(properties.getUploadDir()).toAbsolutePath();
         try {
+            // 2. 建立上傳用的資料夾
             Files.createDirectories(this.fileStorageLocation);
         } catch (Exception ex) {
-            throw new FileStorageException("Could not create the directory where the uploaded files will be stored.",
+            throw new FileStorageException("沒辦法建立上傳用的資料夾",
                     ex);
         }
     }
 
     @Override
     public String store(MultipartFile file, String leaveRecordUuid) {
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        // 1. 取得檔案名稱
+        String originalFileName = file.getOriginalFilename();
+
+        // 2. 取得副檔名 因為只是內部請假證明(故省略複雜的例外考量與驗證設計)
+        String fileExtension = "";
+        try {
+            fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        } catch (Exception e) {
+            fileExtension = "";
+        }
+
+        // 3. 拼接安全檔案名稱
+        String storedFileName = UUID.randomUUID().toString() + fileExtension;
 
         try {
-            if (originalFileName.contains("..")) {
-                throw new FileStorageException("Sorry! Filename contains invalid path sequence " + originalFileName);
-            }
-
-            String fileExtension = "";
-            try {
-                fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
-            } catch (Exception e) {
-                fileExtension = "";
-            }
-            String storedFileName = UUID.randomUUID().toString() + fileExtension;
-
-            Path leaveRecordDir = this.fileStorageLocation.resolve(leaveRecordUuid);
-            Files.createDirectories(leaveRecordDir);
-
-            Path targetLocation = leaveRecordDir.resolve(storedFileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
+            // 4. 從前端儲存檔案到本地端
+            Files.copy(file.getInputStream(), fileStorageLocation, StandardCopyOption.REPLACE_EXISTING);
+            // 5. 回傳檔案名稱
             return storedFileName;
-        } catch (IOException ex) {
-            throw new FileStorageException("Could not store file " + originalFileName + ". Please try again!", ex);
+        } catch (Exception e) {
+            throw new FileStorageException("無法儲存檔案 " + originalFileName, e);
         }
+
     }
 
     @Override

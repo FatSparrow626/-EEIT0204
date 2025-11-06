@@ -36,8 +36,8 @@ public interface LeaveRecordService {
 	double getAnnualLeaveBalance(EmployeeUser currentUser);
 
 	/**
-	 * 為指定uuid假單儲存上傳的附件
-	 * @param uuid 假單的uuid(leave_record_id表格中的leave_uuid欄位)
+	 * 為指定假單 1. 儲存附件到本地端資料夾(若有需求可更換儲存庫) 2. 儲存記錄到DB
+	 * @param uuid 假單的uuid (hr_leave_record表格中的leave_uuid欄位)
 	 * @param file 用戶上傳的附件
 	 * @return 一個 DTO 代表用戶上傳的附件 
 	 */

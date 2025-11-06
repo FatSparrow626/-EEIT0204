@@ -47,14 +47,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequiredArgsConstructor // 1.lombok自動DI
+@RequiredArgsConstructor // lombok自動DI
 @Tag(name = "請假紀錄管理", description = "處理員工請假紀錄的相關操作")
 @RequestMapping("/api/leave")
 public class LeaveRecordApiController {
     private final LeaveRecordService leaveRecordService;
     private final FileStorageService fileStorageService;
 
-    // 2. 新增檔案上傳的 API 端點
+    // 新增檔案上傳的 API 端點
     @Operation(summary = "上傳單一附件", description = "為指定的請假單上傳一個附件")
     @PostMapping("/{uuid}/attachments")
     public ResponseEntity<LeaveAttachmentDto> uploadAttachment(@PathVariable String uuid,
@@ -63,7 +63,7 @@ public class LeaveRecordApiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(attachmentDto);
     }
 
-    // 3. 新增檔案下載的 API 端點
+    // 新增檔案下載的 API 端點
     @Operation(summary = "下載附件", description = "根據請假單UUID和檔案的儲存名稱下載附件")
     @GetMapping("/attachments/{leaveRecordUuid}/{filename:.+}")
     public ResponseEntity<Resource> downloadAttachment(@PathVariable String leaveRecordUuid,
@@ -121,6 +121,7 @@ public class LeaveRecordApiController {
         return ResponseEntity.noContent().build();
     }
 
+    // 尚未實現
     @Operation(summary = "獲取當前用戶的剩餘特休時數", description = "計算並返回當前登入使用者的剩餘特休時數")
     @GetMapping("/annual-leave-balance")
     public ResponseEntity<Map<String, Double>> getAnnualLeaveBalance(
