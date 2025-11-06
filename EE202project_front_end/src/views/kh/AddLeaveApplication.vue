@@ -273,26 +273,32 @@ const handleBeforeUpload = (rawFile) => {
   return true;
 };
 
+// 提交申請假單
 const submitForm = async () => {
+  // 表單不存在或正在提交中，就直接跳出，防止使用者重複點擊
   if (!formRef.value || isSubmitting.value) return;
+  // .validate()呼叫 Element Plus 的內建驗證功能，檢查所有欄位
+  // 若驗證通過，開始提交邏輯
   await formRef.value.validate(async (valid) => {
     if (valid) {
       isSubmitting.value = true;
       let recordUuid = null;
 
       try {
-        // Step 1: Create the leave record
+        // Step 1: 建立假單 + 呼叫 建立假單 API
         const createResponse = await api.post('/api/leave/records', form.value);
         recordUuid = createResponse.data.uuid;
 
-        // Step 2: Upload attachments if any
+        // Step 2: 若有附件，逐一上傳
         if (fileList.value.length > 0 && recordUuid) {
+          // uploadPromises: 存入api.post(...)回傳的Promise物件的js array
           const uploadPromises = fileList.value.map(file => {
             const formData = new FormData();
             formData.append('file', file.raw);
-            console.log("上傳檔案:", file.raw);
-            console.log("FormData內容:", formData.get('file'));
+            // console.log("上傳檔案:", file.raw);
+            // console.log("FormData內容:", formData.get('file'));
 
+            // 呼叫 上傳附件 API
             return api.post(`/api/leave/${recordUuid}/attachments`, formData);
           });
           await Promise.all(uploadPromises);
