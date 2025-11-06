@@ -68,7 +68,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public Path load(String leaveRecordUuid, String filename) {
-        return this.fileStorageLocation.resolve(leaveRecordUuid).resolve(filename);
+        return this.fileStorageLocation.resolve(filename);
     }
 
     @Override
