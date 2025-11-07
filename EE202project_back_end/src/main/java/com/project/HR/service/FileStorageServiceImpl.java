@@ -81,7 +81,9 @@ public class FileStorageServiceImpl implements FileStorageService {
     public Resource loadAsResource(String leaveRecordUuid, String filename) {
         try {
             Path filePath = this.load(leaveRecordUuid, filename).normalize(); // 取得附件檔案路徑
-            Resource resource = new UrlResource(filePath.toUri()); // Path -> UrlResource -> Resource
+            // Path -> Resource -> 回傳給Controller -> (Spring框架處理) -> InputStream ->
+            // 原始位元組流(寫入HTTP 回應 Body)
+            Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists()) {
                 return resource;
             } else {

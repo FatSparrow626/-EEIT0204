@@ -283,6 +283,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
             return 0.0;
         }
 
+        // 取得指定日期範圍內的所有國定假日與補班日
         List<NationalHoliday> holidays = nationalHolidayRepository.findByDateBetween(start.toLocalDate(),
                 end.toLocalDate());
         Set<LocalDate> holidayDates = holidays.stream()
@@ -297,13 +298,16 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         double totalMinutes = 0;
         LocalDateTime loopDateTime = start;
 
+        // 逐分鐘檢查是否為工作時間
         while (loopDateTime.isBefore(end)) {
             LocalDate loopDate = loopDateTime.toLocalDate();
+            // 例假日判斷
             DayOfWeek dayOfWeek = loopDate.getDayOfWeek();
             boolean isWorkingDay = makeupWorkdays.contains(loopDate) ||
                     (dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
                             && !holidayDates.contains(loopDate));
 
+            // 設定上下班時間與午休時間
             if (isWorkingDay) {
                 LocalDateTime workDayStart = loopDate.atTime(9, 0);
                 LocalDateTime workDayEnd = loopDate.atTime(18, 0);
@@ -328,7 +332,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         }
 
         double totalHours = totalMinutes / 60.0;
-        return Math.round(totalHours * 2) / 2.0;
+        return Math.round(totalHours * 2) / 2.0; // 四捨五入到0.5小時
     }
 
     // 尚未實作

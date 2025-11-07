@@ -94,9 +94,9 @@
           <el-descriptions-item label="申請人">{{ selectedRecord.employeeName }}</el-descriptions-item>
           <el-descriptions-item label="假別">{{ selectedRecord.leaveTypeName }}</el-descriptions-item>
           <el-descriptions-item label="開始時間">{{ formatDialogDateTime(selectedRecord.startDatetime)
-            }}</el-descriptions-item>
+          }}</el-descriptions-item>
           <el-descriptions-item label="結束時間">{{ formatDialogDateTime(selectedRecord.endDatetime)
-            }}</el-descriptions-item>
+          }}</el-descriptions-item>
           <el-descriptions-item label="總時數">{{ selectedRecord.hours }} 小時</el-descriptions-item>
           <el-descriptions-item label="狀態">
             <el-tag :type="statusTagType(selectedRecord.statusCode)">{{ selectedRecord.statusName }}</el-tag>
@@ -296,7 +296,7 @@ const loadAttachmentPreviews = async (attachments) => {
     .map(async (file) => {
       try {
         const imageUrl = file.downloadUrl.split('?')[0];
-        const response = await api.get(imageUrl, { responseType: 'blob' }); // 呼叫後端下載圖片api
+        const response = await api.get(imageUrl, { responseType: 'blob' }); // 呼叫後端下載圖片api -> 接收含原始檔案的位元組流HTTP Body -> 前端轉成blob物件
         console.log('圖片下載回應:', response);
         const blob = response.data;
         console.log('圖片Blob物件:', blob);
