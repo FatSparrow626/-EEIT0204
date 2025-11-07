@@ -1,15 +1,12 @@
 <template>
+  <!-- LeaveListView 主視圖 -->
   <el-card class="leave-list-card kh-view-upscaled">
     <template v-slot:header>
       <div class="card-header">
         <span style="font-size: 20px; font-weight: bold;">📋 請假紀錄管理</span>
         <div class="header-actions">
-          <el-button
-            type="primary"
-            icon="Plus"
-            @click="addRecord"
-            v-if="authStore.currentUser?.authorities.includes('LEAVE_APPLY_SELF')"
-          >
+          <el-button type="primary" icon="Plus" @click="addRecord"
+            v-if="authStore.currentUser?.authorities.includes('LEAVE_APPLY_SELF')">
             新增請假申請
           </el-button>
         </div>
@@ -25,27 +22,33 @@
     </el-tabs>
 
     <div class="filter-container" style="margin-bottom: 15px; display: flex; gap: 15px; align-items: center;">
-      <el-select v-if="activeTab === 'myRequests'" v-model="statusFilter" placeholder="依狀態篩選" style="width: 140px;" size="small" @change="fetchLeaveRecords">
+      <el-select v-if="activeTab === 'myRequests'" v-model="statusFilter" placeholder="依狀態篩選" style="width: 140px;"
+        size="small" @change="fetchLeaveRecords">
         <el-option v-for="item in filterOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
       <template v-if="activeTab !== 'myRequests'">
-        <el-autocomplete v-model="searchName" :fetch-suggestions="querySearchAsync" placeholder="請輸入員工姓名搜尋" @select="handleNameSelect" @clear="handleNameClear" clearable style="width: 240px;" value-key="fullName" />
-        <el-date-picker v-model="searchDateRange" type="daterange" range-separator="-" start-placeholder="請假開始日期" end-placeholder="請假結束日期" @change="fetchLeaveRecords" style="width: 280px;" :clearable="true" />
+        <el-autocomplete v-model="searchName" :fetch-suggestions="querySearchAsync" placeholder="請輸入員工姓名搜尋"
+          @select="handleNameSelect" @clear="handleNameClear" clearable style="width: 240px;" value-key="fullName" />
+        <el-date-picker v-model="searchDateRange" type="daterange" range-separator="-" start-placeholder="請假開始日期"
+          end-placeholder="請假結束日期" @change="fetchLeaveRecords" style="width: 280px;" :clearable="true" />
       </template>
-      <el-select v-if="isSuperManager && activeTab === 'processed'" v-model="processedViewScope" style="width: 180px;" size="small" @change="fetchLeaveRecords">
+      <el-select v-if="isSuperManager && activeTab === 'processed'" v-model="processedViewScope" style="width: 180px;"
+        size="small" @change="fetchLeaveRecords">
         <el-option label="部門已處理資料" value="department" />
         <el-option label="全公司已處理資料" value="company" />
       </el-select>
     </div>
 
     <!-- Table remains the same -->
-    <el-table ref="tableRef" :data="leaveRecords" stripe border v-loading="loading" style="width: 100%" @row-click="handleRowClick" :row-class-name="tableRowClassName" @sort-change="handleSortChange">
+    <el-table ref="tableRef" :data="leaveRecords" stripe border v-loading="loading" style="width: 100%"
+      @row-click="handleRowClick" :row-class-name="tableRowClassName" @sort-change="handleSortChange">
       <el-table-column type="expand">
         <template #default="{ row }">
           <div v-if="row.statusCode === 'REJECTED' && row.rejectionReason" class="rejection-reason-box">
             <strong>駁回原因：</strong> {{ row.rejectionReason }}
           </div>
-          <div v-if="(activeTab === 'processed' || activeTab === 'companyAll') && row.reviewedAt" class="reviewed-at-box">
+          <div v-if="(activeTab === 'processed' || activeTab === 'companyAll') && row.reviewedAt"
+            class="reviewed-at-box">
             <strong>審核時間：</strong> {{ formatDateTime(null, null, row.reviewedAt) }}
           </div>
         </template>
@@ -60,37 +63,47 @@
       <el-table-column label="操作" width="180" fixed="right">
         <template v-slot:default="{ row }">
           <el-button type="info" icon="View" circle @click.stop="viewRecord(row.uuid)" title="查看詳情" />
-          <template v-if="(isManager || isSuperManager) && row.statusCode === 'PENDING' && row.employeeId !== authStore.currentUser.employeeId">
-            <el-button type="success" icon="Check" circle @click.stop="handleApproval(row.uuid, 'APPROVED')" title="核准" />
-            <el-button type="danger" icon="Close" circle @click.stop="handleApproval(row.uuid, 'REJECTED')" title="駁回" />
+          <template
+            v-if="(isManager || isSuperManager) && row.statusCode === 'PENDING' && row.employeeId !== authStore.currentUser.employeeId">
+            <el-button type="success" icon="Check" circle @click.stop="handleApproval(row.uuid, 'APPROVED')"
+              title="核准" />
+            <el-button type="danger" icon="Close" circle @click.stop="handleApproval(row.uuid, 'REJECTED')"
+              title="駁回" />
           </template>
-          <el-button type="primary" icon="Edit" circle @click.stop="editRecord(row.uuid)" title="編輯" v-if="row.statusCode === 'PENDING' && row.employeeId === authStore.currentUser.employeeId" />
-          <el-button type="danger" icon="Delete" circle @click.stop="deleteRecord(row.uuid)" title="刪除" v-if="row.statusCode === 'PENDING' && row.employeeId === authStore.currentUser.employeeId" />
+          <el-button type="primary" icon="Edit" circle @click.stop="editRecord(row.uuid)" title="編輯"
+            v-if="row.statusCode === 'PENDING' && row.employeeId === authStore.currentUser.employeeId" />
+          <el-button type="danger" icon="Delete" circle @click.stop="deleteRecord(row.uuid)" title="刪除"
+            v-if="row.statusCode === 'PENDING' && row.employeeId === authStore.currentUser.employeeId" />
         </template>
       </el-table-column>
     </el-table>
 
     <!-- Pagination remains the same -->
     <div class="pagination-container">
-      <el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="currentPage" :page-sizes="[10, 20, 50, 100]" :page-size="pageSize" layout="total, sizes, prev, pager, next, jumper" :total="totalRecords" />
+      <el-pagination @size-change="handleSizeChange" @current-change="handleCurrentChange" :current-page="currentPage"
+        :page-sizes="[10, 20, 50, 100]" :page-size="pageSize" layout="total, sizes, prev, pager, next, jumper"
+        :total="totalRecords" />
     </div>
   </el-card>
 
-  <!-- Details Dialog -->
+  <!-- 查看詳情 Dialog (SPA實現的關鍵) -->
   <el-dialog v-model="dialogVisible" title="請假申請詳情" width="60%" :before-close="handleClose">
     <div v-loading="isLoadingDetails">
       <div v-if="selectedRecord">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="申請人">{{ selectedRecord.employeeName }}</el-descriptions-item>
           <el-descriptions-item label="假別">{{ selectedRecord.leaveTypeName }}</el-descriptions-item>
-          <el-descriptions-item label="開始時間">{{ formatDialogDateTime(selectedRecord.startDatetime) }}</el-descriptions-item>
-          <el-descriptions-item label="結束時間">{{ formatDialogDateTime(selectedRecord.endDatetime) }}</el-descriptions-item>
+          <el-descriptions-item label="開始時間">{{ formatDialogDateTime(selectedRecord.startDatetime)
+          }}</el-descriptions-item>
+          <el-descriptions-item label="結束時間">{{ formatDialogDateTime(selectedRecord.endDatetime)
+          }}</el-descriptions-item>
           <el-descriptions-item label="總時數">{{ selectedRecord.hours }} 小時</el-descriptions-item>
           <el-descriptions-item label="狀態">
             <el-tag :type="statusTagType(selectedRecord.statusCode)">{{ selectedRecord.statusName }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="職務代理人">{{ selectedRecord.agentName || '未指定' }}</el-descriptions-item>
-          <el-descriptions-item label="審核時間" v-if="selectedRecord.reviewedAt">{{ formatDialogDateTime(selectedRecord.reviewedAt) }}</el-descriptions-item>
+          <el-descriptions-item label="審核時間" v-if="selectedRecord.reviewedAt">{{
+            formatDialogDateTime(selectedRecord.reviewedAt) }}</el-descriptions-item>
           <el-descriptions-item label="事由" :span="2">{{ selectedRecord.reason }}</el-descriptions-item>
           <el-descriptions-item label="駁回原因" :span="2" v-if="selectedRecord.statusCode === 'REJECTED'">
             <el-alert :title="selectedRecord.rejectionReason" type="error" :closable="false" />
@@ -98,36 +111,27 @@
         </el-descriptions>
 
         <el-divider content-position="left">📎 附件列表</el-divider>
-        
+
         <div v-if="!selectedRecord.attachments || selectedRecord.attachments.length === 0">
-            <el-empty description="無附件" :image-size="60"></el-empty>
+          <el-empty description="無附件" :image-size="60"></el-empty>
         </div>
         <div v-else>
-            <!-- Image Attachments -->
-            <div v-if="imageAttachments.length > 0" class="attachment-gallery">
-                <el-image
-                    v-for="(file, index) in imageAttachments"
-                    :key="file.id"
-                    style="width: 100px; height: 100px; border-radius: 6px; margin-right: 10px;"
-                    :src="imageSrcs[file.id]"
-                    :preview-src-list="imagePreviewList"
-                    :initial-index="index"
-                    fit="cover"
-                    hide-on-click-modal
-                />
-            </div>
+          <!-- Image Attachments -->
+          <div v-if="imageAttachments.length > 0" class="attachment-gallery">
+            <el-image v-for="(file, index) in imageAttachments" :key="file.id"
+              style="width: 100px; height: 100px; border-radius: 6px; margin-right: 10px;" :src="imageSrcs[file.id]"
+              :preview-src-list="imagePreviewList" :initial-index="index" fit="cover" hide-on-click-modal />
+          </div>
 
-            <!-- Other Attachments -->
-            <div v-if="otherAttachments.length > 0" class="attachment-list">
-                <el-tag 
-                    v-for="file in otherAttachments" 
-                    :key="file.id" 
-                    class="attachment-tag"
-                    @click="downloadFile(file.downloadUrl, file.fileName)"
-                >
-                    <el-icon><Paperclip /></el-icon> {{ file.fileName }} ({{ (file.fileSize / 1024).toFixed(2) }} KB)
-                </el-tag>
-            </div>
+          <!-- Other Attachments -->
+          <div v-if="otherAttachments.length > 0" class="attachment-list">
+            <el-tag v-for="file in otherAttachments" :key="file.id" class="attachment-tag"
+              @click="downloadFile(file.downloadUrl, file.fileName)">
+              <el-icon>
+                <Paperclip />
+              </el-icon> {{ file.fileName }} ({{ (file.fileSize / 1024).toFixed(2) }} KB)
+            </el-tag>
+          </div>
         </div>
 
       </div>
@@ -152,13 +156,14 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { useAuthStore } from '@/stores/AuthStore';
 import { Paperclip } from '@element-plus/icons-vue';
 
+// --- 基本變數宣告 ---
 const router = useRouter();
 const leaveRecords = ref([]);
 const loading = ref(true);
 const authStore = useAuthStore();
 const tableRef = ref(null);
 
-// --- Dialog State ---
+// --- Dialog 標籤內的變數宣告 ---
 const dialogVisible = ref(false);
 const isLoadingDetails = ref(false);
 const selectedRecord = ref(null);
@@ -166,18 +171,18 @@ const imageSrcs = ref({}); // For storing blob URLs
 
 // --- Attachment Computed Properties ---
 const imageAttachments = computed(() => {
-    if (!selectedRecord.value || !selectedRecord.value.attachments) return [];
-    return selectedRecord.value.attachments.filter(file => file.fileType.startsWith('image/'));
+  if (!selectedRecord.value || !selectedRecord.value.attachments) return [];
+  return selectedRecord.value.attachments.filter(file => file.fileType.startsWith('image/'));
 });
 
 const otherAttachments = computed(() => {
-    if (!selectedRecord.value || !selectedRecord.value.attachments) return [];
-    return selectedRecord.value.attachments.filter(file => !file.fileType.startsWith('image/'));
+  if (!selectedRecord.value || !selectedRecord.value.attachments) return [];
+  return selectedRecord.value.attachments.filter(file => !file.fileType.startsWith('image/'));
 });
 
 const imagePreviewList = computed(() => {
-    // Use the blob URLs for the preview list
-    return imageAttachments.value.map(file => imageSrcs.value[file.id]).filter(Boolean);
+  // Use the blob URLs for the preview list
+  return imageAttachments.value.map(file => imageSrcs.value[file.id]).filter(Boolean);
 });
 
 // --- Computed properties for roles ---
@@ -227,14 +232,14 @@ const statusTagType = (statusCode) => {
 };
 
 const tableRowClassName = ({ row }) => {
-  const hasDetails = (row.statusCode === 'REJECTED' && row.rejectionReason) || 
-                     ((activeTab.value === 'processed' || activeTab.value === 'companyAll') && row.reviewedAt);
+  const hasDetails = (row.statusCode === 'REJECTED' && row.rejectionReason) ||
+    ((activeTab.value === 'processed' || activeTab.value === 'companyAll') && row.reviewedAt);
   return hasDetails ? '' : 'hide-expand-icon';
 };
 
 const handleRowClick = (row) => {
-  const hasDetails = (row.statusCode === 'REJECTED' && row.rejectionReason) || 
-                     ((activeTab.value === 'processed' || activeTab.value === 'companyAll') && row.reviewedAt);
+  const hasDetails = (row.statusCode === 'REJECTED' && row.rejectionReason) ||
+    ((activeTab.value === 'processed' || activeTab.value === 'companyAll') && row.reviewedAt);
   if (hasDetails) {
     tableRef.value?.toggleRowExpansion(row);
   }
@@ -281,11 +286,12 @@ const fetchLeaveRecords = async () => {
   }
 };
 
+// 圖片預覽程式
 const loadAttachmentPreviews = async (attachments) => {
-  if (!attachments || attachments.length === 0) return;
+  if (!attachments || attachments.length === 0) return; // 如果附件壞掉，直接跳掉
 
   const imagePromises = attachments
-    .filter(file => file.fileType.startsWith('image/'))
+    .filter(file => file.fileType.startsWith('image/')) // 透過MIME類別只篩選出圖片
     .map(async (file) => {
       try {
         const imageUrl = file.downloadUrl.split('?')[0];
@@ -301,16 +307,26 @@ const loadAttachmentPreviews = async (attachments) => {
   await Promise.all(imagePromises);
 };
 
+// 用SPA查看單筆詳情
 const viewRecord = async (uuid) => {
   selectedRecord.value = null;
+  // 打開一個彈出對話框 (<el-dialog>) SPA的關鍵
   dialogVisible.value = true;
   isLoadingDetails.value = true;
   try {
+    // 取得單筆假單
     const response = await api.get(`/api/leave/records/${uuid}`);
     selectedRecord.value = response.data;
+
+    // 印出來看 selectedRecord 是vue3物件、response 是promise物件 
+    // console.log('請假詳情selectedRecord:', selectedRecord);
+    console.log('請假詳情response:', response);
+    // 如果有附件，執行圖片預覽程式
     if (response.data.attachments) {
       await loadAttachmentPreviews(response.data.attachments);
     }
+    // 印出來看response.data.attachments 是js array
+    // console.log('附件列表response.data.attachments:', response.data.attachments);
   } catch (err) {
     console.error('獲取請假詳情失敗:', err);
     ElMessage.error(err.response?.data?.message || '無法載入資料');
@@ -341,13 +357,13 @@ const downloadFile = async (url, fileName) => {
 };
 
 const handleClose = () => {
-    dialogVisible.value = false;
-    selectedRecord.value = null;
-    // Revoke all created blob URLs to prevent memory leaks
-    Object.values(imageSrcs.value).forEach(url => {
-        if (url) URL.revokeObjectURL(url);
-    });
-    imageSrcs.value = {}; // Reset for next time
+  dialogVisible.value = false;
+  selectedRecord.value = null;
+  // Revoke all created blob URLs to prevent memory leaks
+  Object.values(imageSrcs.value).forEach(url => {
+    if (url) URL.revokeObjectURL(url);
+  });
+  imageSrcs.value = {}; // Reset for next time
 }
 
 const querySearchAsync = async (queryString, cb) => {
@@ -443,48 +459,59 @@ onMounted(fetchLeaveRecords);
 .leave-list-card {
   margin: 20px;
 }
+
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .header-actions {
   display: flex;
   align-items: center;
 }
+
 .filter-container {
   margin-bottom: 15px;
   display: flex;
   gap: 15px;
   align-items: center;
 }
-.rejection-reason-box, .reviewed-at-box {
+
+.rejection-reason-box,
+.reviewed-at-box {
   padding: 8px 12px;
   border-left-width: 4px;
   border-left-style: solid;
   margin: 10px 0;
 }
+
 .rejection-reason-box {
   background-color: #fef0f0;
   color: #f56c6c;
   border-left-color: #f56c6c;
 }
+
 .reviewed-at-box {
   background-color: #e6f7ff;
   color: #1890ff;
   border-left-color: #1890ff;
 }
+
 :deep(.hide-expand-icon .el-table__expand-icon) {
   display: none;
 }
+
 .pagination-container {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }
+
 .attachment-gallery {
-    margin-bottom: 10px;
+  margin-bottom: 10px;
 }
+
 .attachment-list {
   display: flex;
   flex-wrap: wrap;
@@ -520,6 +547,7 @@ onMounted(fetchLeaveRecords);
 .kh-view-upscaled :deep(.el-card__header) {
   padding: 20px 24px;
 }
+
 .kh-view-upscaled :deep(.el-card__body) {
   padding: 24px;
 }
@@ -529,9 +557,11 @@ onMounted(fetchLeaveRecords);
   font-size: 16px;
   height: 48px;
 }
+
 .kh-view-upscaled :deep(.el-input__inner) {
   font-size: 16px;
 }
+
 .kh-view-upscaled :deep(.el-button) {
   font-size: 16px;
   padding: 10px 18px;
@@ -539,7 +569,8 @@ onMounted(fetchLeaveRecords);
 
 /* --- 修正：恢復圓形按鈕的樣式 --- */
 .kh-view-upscaled :deep(.el-button.is-circle) {
-  padding: 12px; /* 確保 padding 上下左右相等 */
+  padding: 12px;
+  /* 確保 padding 上下左右相等 */
 }
 
 /* 放大表格 */
@@ -547,6 +578,7 @@ onMounted(fetchLeaveRecords);
 .kh-view-upscaled :deep(.el-table td.el-table__cell) {
   padding: 14px 0;
 }
+
 .kh-view-upscaled :deep(.el-table) {
   font-size: 16px;
 }
@@ -558,8 +590,9 @@ onMounted(fetchLeaveRecords);
 
 /* 放大彈出對話框 */
 .kh-view-upscaled :deep(.el-dialog) {
-    --el-dialog-title-font-size: 22px;
+  --el-dialog-title-font-size: 22px;
 }
+
 .kh-view-upscaled :deep(.el-descriptions__label),
 .kh-view-upscaled :deep(.el-descriptions__content) {
   font-size: 16px;

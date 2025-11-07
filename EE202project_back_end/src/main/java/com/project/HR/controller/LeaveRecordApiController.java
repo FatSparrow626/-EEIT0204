@@ -175,8 +175,8 @@ public class LeaveRecordApiController {
     @GetMapping("/records/{uuid}")
     public ResponseEntity<LeaveRecordDto> getLeaveRecordByUuid(@PathVariable String uuid) {
         return leaveRecordService.getLeaveRecordDtoByUuid(uuid)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .map(dto -> ResponseEntity.ok(dto))// optional 有值 -> 回傳200 + dto
+                .orElse(ResponseEntity.notFound().build()); // optional 是空的 -> 回傳404
     }
 
     @Operation(summary = "新增請假紀錄", description = "為當前登入的員工新增一筆請假紀錄")

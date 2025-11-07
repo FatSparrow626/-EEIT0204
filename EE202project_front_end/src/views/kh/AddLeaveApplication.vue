@@ -93,7 +93,7 @@ const router = useRouter();
 const authStore = useAuthStore();
 const formRef = ref(null);
 const uploadRef = ref(null);
-const fileList = ref([]);
+const fileList = ref([]); // vue的響應式列表
 const isSubmitting = ref(false);
 
 // 代理人搜尋相關
@@ -293,11 +293,9 @@ const submitForm = async () => {
         if (fileList.value.length > 0 && recordUuid) {
           // uploadPromises: 存入api.post(...)回傳的Promise物件的js array
           const uploadPromises = fileList.value.map(file => {
+            // 瀏覽器內建的、包裝成 multipart/form-data 請求的標準 API
             const formData = new FormData();
             formData.append('file', file.raw);
-            // console.log("上傳檔案:", file.raw);
-            // console.log("FormData內容:", formData.get('file'));
-
             // 呼叫 上傳附件 API
             return api.post(`/api/leave/${recordUuid}/attachments`, formData);
           });

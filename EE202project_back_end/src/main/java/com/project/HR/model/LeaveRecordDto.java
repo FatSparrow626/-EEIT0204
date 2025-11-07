@@ -27,5 +27,5 @@ public class LeaveRecordDto {
     private String leaveTypeName;
     private String rejectionReason;
     private LocalDateTime reviewedAt;
-    private List<LeaveAttachmentDto> attachments;
+    private List<LeaveAttachmentDto> attachments; // 假單附件List 因為附件可能有多筆
 }

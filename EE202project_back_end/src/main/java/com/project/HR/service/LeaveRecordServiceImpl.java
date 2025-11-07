@@ -91,17 +91,27 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         attachment.setLeaveRecord(leaveRecord); // 建立附件與指定uuid假單的關聯
         attachment.setFileName(file.getOriginalFilename()); // 前端上傳檔名
         attachment.setStoredFileName(storedFileName); // 本地檔名
+
+        // spring 提供的Mutipart介面，可以取得前端檔案類型與大小
         attachment.setFileType(file.getContentType());
         attachment.setFileSize(file.getSize());
 
         // 使用Spring data 操作DB
         LeaveAttachment savedAttachment = leaveAttachmentRepository.save(attachment);
 
-        // 回傳DTO
+        // 回傳附件DTO
         return convertToDto(savedAttachment);
     }
 
-    // 將entity轉DTO，同時用spring web 的 api產生下載連結(/localhost:8080 + /api/leave/attachments/ + <leaveUuid> +/+ <storedFileName>)
+    /**
+     * 附件DTO轉換器:
+     * 將LeaveAttachment entity轉成LeaveAttachmentDto
+     * 同時用spring web 的 api產生下載連結(/localhost:8080 + /api/leave/attachments/ +
+     * <leaveUuid> +/+ <storedFileName>)
+     * 
+     * @param attachment
+     * @return LeaveAttachmentDto 附件的DTO
+     */
     private LeaveAttachmentDto convertToDto(LeaveAttachment attachment) {
         String downloadUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/api/leave/attachments/")
@@ -342,7 +352,6 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         return totalEntitlementHours - usedHours;
     }
 
-    
     public Optional<LeaveRecordDto> updateLeaveStatus(String uuid, String status, String reason) {
         return leaveRecordRepository.findByUuid(uuid)
                 .map(existingRecord -> {
@@ -468,9 +477,12 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         return leaveRecordsPage.map(this::convertToDto);
     }
 
+    /**
+     * 呼叫repository透過uuid查詢假單，並轉成DTO回傳
+     */
     public Optional<LeaveRecordDto> getLeaveRecordDtoByUuid(String uuid) {
         return leaveRecordRepository.findByUuid(uuid)
-                .map(this::convertToDto);
+                .map(leaveRecord -> this.convertToDto(leaveRecord)); // 呼叫假單的DTO
     }
 
     @Override
@@ -485,8 +497,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
 
         System.out.println("DEBUG: Found attachment for deletion: " + attachment.getStoredFileName() + ", ID: "
                 + attachment.getId());
-        System.out.println("DEBUG: Attachment's LeaveRecord ID: " + attachment.getLeaveRecord().getId()); // Added this
-                                                                                                          // log
+        System.out.println("DEBUG: Attachment's LeaveRecord ID: " + attachment.getLeaveRecord().getId());
 
         try {
             // Delete the physical file
@@ -513,6 +524,13 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         System.out.println("DEBUG: Exiting deleteAttachment method successfully.");
     }
 
+    /**
+     * 假單DTO轉換器:
+     * 將LeaveRecord entity轉成LeaveRecordDto
+     * 
+     * @param record
+     * @return LeaveRecordDto 假單的DTO
+     */
     private LeaveRecordDto convertToDto(LeaveRecord record) {
         LeaveRecordDto dto = new LeaveRecordDto();
         dto.setUuid(record.getUuid());
@@ -523,6 +541,7 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
         dto.setRejectionReason(record.getRejectionReason());
         dto.setReviewedAt(record.getReviewedAt());
 
+        // 多段if的功能: 把entity對應的物件挑選資訊並扁平化，以便前端顯示
         if (record.getStatus() != null) {
             dto.setStatusCode(record.getStatus().getCode());
             dto.setStatusName(record.getStatus().getName());
@@ -541,9 +560,10 @@ public class LeaveRecordServiceImpl implements LeaveRecordService {
 
         dto.setLeaveTypeName(record.getLeaveType().getName());
 
+        // 處理假單附件List: 從entity轉成DTO
         if (record.getAttachments() != null && !record.getAttachments().isEmpty()) {
             List<LeaveAttachmentDto> attachmentDtos = record.getAttachments().stream()
-                    .map(this::convertToDto)
+                    .map(attachment -> this.convertToDto(attachment)) // 呼叫附件DTO轉換器
                     .collect(Collectors.toList());
             dto.setAttachments(attachmentDtos);
         } else {

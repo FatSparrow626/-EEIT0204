@@ -6,8 +6,7 @@ const api = axios.create({
   baseURL: 'http://localhost:8082',
   headers: {
     'Content-Type': 'application/json'
-  },
-  timeout: 5000
+  }
 })
 
 // 請求攔截器
@@ -25,7 +24,7 @@ api.interceptors.request.use((config) => {
     config.headers.delete('Content-Type');
   }
 
-  console.log("Request 發送前的設定：", config);
+  // console.log("Request 發送前的設定：", config);
   return config
 })
 

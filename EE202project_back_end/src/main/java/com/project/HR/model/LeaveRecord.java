@@ -20,7 +20,7 @@ import java.util.Set;
 @Table(name = "hr_leave_record")
 @Getter
 @Setter
-@ToString(exclude = {"employee", "agent", "leaveType", "status", "attachments"})
+@ToString(exclude = { "employee", "agent", "leaveType", "status", "attachments" })
 @EqualsAndHashCode(of = "uuid")
 @NoArgsConstructor
 @AllArgsConstructor
@@ -66,7 +66,6 @@ public class LeaveRecord implements Serializable {
     @OneToMany(mappedBy = "leaveRecord", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<LeaveAttachment> attachments = new HashSet<>();
 
-    // 新增欄位
     @Column(name = "rejection_reason", length = 255)
     private String rejectionReason;
 
@@ -81,6 +80,7 @@ public class LeaveRecord implements Serializable {
 
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (createdAt == null)
+            createdAt = LocalDateTime.now();
     }
 }
