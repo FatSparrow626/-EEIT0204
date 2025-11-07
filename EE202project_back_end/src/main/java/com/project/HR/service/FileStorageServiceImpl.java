@@ -66,16 +66,22 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     }
 
+    /**
+     * 取得附件完整路徑: 結合父資料夾路徑+檔名
+     */
     @Override
     public Path load(String leaveRecordUuid, String filename) {
         return this.fileStorageLocation.resolve(filename);
     }
 
+    /**
+     * 載入檔案 as a Spring Resource
+     */
     @Override
     public Resource loadAsResource(String leaveRecordUuid, String filename) {
         try {
-            Path filePath = this.load(leaveRecordUuid, filename).normalize();
-            Resource resource = new UrlResource(filePath.toUri());
+            Path filePath = this.load(leaveRecordUuid, filename).normalize(); // 取得附件檔案路徑
+            Resource resource = new UrlResource(filePath.toUri()); // Path -> UrlResource -> Resource
             if (resource.exists()) {
                 return resource;
             } else {

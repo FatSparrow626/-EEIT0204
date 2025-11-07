@@ -94,9 +94,9 @@
           <el-descriptions-item label="申請人">{{ selectedRecord.employeeName }}</el-descriptions-item>
           <el-descriptions-item label="假別">{{ selectedRecord.leaveTypeName }}</el-descriptions-item>
           <el-descriptions-item label="開始時間">{{ formatDialogDateTime(selectedRecord.startDatetime)
-          }}</el-descriptions-item>
+            }}</el-descriptions-item>
           <el-descriptions-item label="結束時間">{{ formatDialogDateTime(selectedRecord.endDatetime)
-          }}</el-descriptions-item>
+            }}</el-descriptions-item>
           <el-descriptions-item label="總時數">{{ selectedRecord.hours }} 小時</el-descriptions-item>
           <el-descriptions-item label="狀態">
             <el-tag :type="statusTagType(selectedRecord.statusCode)">{{ selectedRecord.statusName }}</el-tag>
@@ -121,6 +121,7 @@
             <el-image v-for="(file, index) in imageAttachments" :key="file.id"
               style="width: 100px; height: 100px; border-radius: 6px; margin-right: 10px;" :src="imageSrcs[file.id]"
               :preview-src-list="imagePreviewList" :initial-index="index" fit="cover" hide-on-click-modal />
+            <!-- 按照插件的api 完成圖片輪播功能 -->
           </div>
 
           <!-- Other Attachments -->
@@ -169,10 +170,10 @@ const isLoadingDetails = ref(false);
 const selectedRecord = ref(null);
 const imageSrcs = ref({}); // For storing blob URLs
 
-// --- Attachment Computed Properties ---
+// --- Attachment 計算屬性 ---
 const imageAttachments = computed(() => {
   if (!selectedRecord.value || !selectedRecord.value.attachments) return [];
-  return selectedRecord.value.attachments.filter(file => file.fileType.startsWith('image/'));
+  return selectedRecord.value.attachments.filter(file => file.fileType.startsWith('image/')); // 只篩選出圖片
 });
 
 const otherAttachments = computed(() => {
@@ -291,13 +292,16 @@ const loadAttachmentPreviews = async (attachments) => {
   if (!attachments || attachments.length === 0) return; // 如果附件壞掉，直接跳掉
 
   const imagePromises = attachments
-    .filter(file => file.fileType.startsWith('image/')) // 透過MIME類別只篩選出圖片
+    .filter(file => file.fileType.startsWith('image/')) // 透過fileType(來自DB的屬性)只篩選出圖片
     .map(async (file) => {
       try {
         const imageUrl = file.downloadUrl.split('?')[0];
-        const response = await api.get(imageUrl, { responseType: 'blob' });
-        const blob = new Blob([response.data], { type: response.headers['content-type'] });
+        const response = await api.get(imageUrl, { responseType: 'blob' }); // 呼叫後端下載圖片api
+        console.log('圖片下載回應:', response);
+        const blob = response.data;
+        console.log('圖片Blob物件:', blob);
         imageSrcs.value[file.id] = URL.createObjectURL(blob);
+        console.log('圖片URL:', imageSrcs);
       } catch (error) {
         console.error(`無法載入圖片預覽: ${file.fileName}`, error);
         imageSrcs.value[file.id] = ''; // Or a placeholder

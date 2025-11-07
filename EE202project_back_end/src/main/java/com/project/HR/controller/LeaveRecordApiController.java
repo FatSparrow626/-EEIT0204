@@ -63,30 +63,34 @@ public class LeaveRecordApiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(attachmentDto);
     }
 
-    // 新增檔案下載的 API 端點
+    // 下載檔案的 API
     @Operation(summary = "下載附件", description = "根據請假單UUID和檔案的儲存名稱下載附件")
     @GetMapping("/attachments/{leaveRecordUuid}/{filename:.+}")
     public ResponseEntity<Resource> downloadAttachment(@PathVariable String leaveRecordUuid,
             @PathVariable String filename, @RequestParam(required = false) Boolean inline, HttpServletRequest request) {
         Resource resource = fileStorageService.loadAsResource(leaveRecordUuid, filename);
 
+        // 判斷這是什麼類型的檔案
         String contentType = null;
         try {
+            // 透過ServletContext去對比出本地副檔名 <-> MIME type，回傳正確的Content-Type字串
             contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
         } catch (IOException ex) {
-            // fallback to the default content type if type could not be determined
+            // 不做事，spring 會自動回傳對應HTTP回應
         }
 
         if (contentType == null) {
-            contentType = "application/octet-stream";
+            contentType = "application/octet-stream"; // 如果判斷不出來，就當作是通用的二進位檔案
         }
 
+        // 決定要讓瀏覽器「直接打開」還是「下載儲存」
         String dispositionType = (inline != null && inline) ? "inline" : "attachment";
 
+        // 打包成一個完整的 HTTP 回應，交給使用者
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
+                .contentType(MediaType.parseMediaType(contentType)) // 設定Content-Type
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        dispositionType + "; filename=\"" + resource.getFilename() + "\"")
+                        dispositionType + "; filename=\"" + resource.getFilename() + "\"") // 決定圖片預覽 or 下載(且檔名是當初上傳檔名)
                 .body(resource);
     }
 
