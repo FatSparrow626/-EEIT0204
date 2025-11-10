@@ -42,10 +42,11 @@ public class AuthController {
     @Autowired
     SystemLogService systemLogService;
 
-    @Operation(summary = "使用者登入", description = "透過使用者名稱和密碼進行登入，並返回JWT")
+    @Operation(summary = "使用者登入流程第一站", description = "透過使用者名稱和密碼進行登入，並返回JWT")
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Parameter(description = "登入請求物件", required = true) @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         try {
+            // 呼叫AuthenticationManager執行認證
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 

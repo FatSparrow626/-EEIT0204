@@ -54,7 +54,6 @@ public class LeaveRecordApiController {
     private final LeaveRecordService leaveRecordService;
     private final FileStorageService fileStorageService;
 
-    // 新增檔案上傳的 API 端點
     @Operation(summary = "上傳單一附件", description = "為指定的請假單上傳一個附件")
     @PostMapping("/{uuid}/attachments")
     public ResponseEntity<LeaveAttachmentDto> uploadAttachment(@PathVariable String uuid,
@@ -63,8 +62,7 @@ public class LeaveRecordApiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(attachmentDto);
     }
 
-    // 下載檔案的 API
-    @Operation(summary = "下載附件", description = "根據請假單UUID和檔案的儲存名稱下載附件")
+    @Operation(summary = "下載、預覽附件", description = "根據請假單UUID和檔案的儲存名稱下載附件到瀏覽器，同時也提供預覽功能")
     @GetMapping("/attachments/{leaveRecordUuid}/{filename:.+}")
     public ResponseEntity<Resource> downloadAttachment(@PathVariable String leaveRecordUuid,
             @PathVariable String filename, @RequestParam(required = false) Boolean inline, HttpServletRequest request) {
@@ -94,39 +92,43 @@ public class LeaveRecordApiController {
                 .body(resource);
     }
 
-    @Operation(summary = "刪除附件", description = "根據請假單UUID和檔案的儲存名稱刪除附件")
+    @Operation(summary = "刪除附件", description = "根據請假單UUID和檔案的儲存名稱刪除附件，且只能由請假單擁有者(或高管)操作")
     @DeleteMapping("/attachments/{leaveRecordUuid}/{filename:.+}")
     public ResponseEntity<Void> deleteAttachment(@PathVariable String leaveRecordUuid, @PathVariable String filename,
             @AuthenticationPrincipal EmployeeUserDetails userDetails) {
+
+        // 登入驗證 -> 401 沒登入
         if (userDetails == null || userDetails.getEmployeeUser() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         Optional<LeaveRecordDto> leaveRecordOptional = leaveRecordService.getLeaveRecordDtoByUuid(leaveRecordUuid);
 
+        // 請假單不存在 -> 404 找不到東西
         if (leaveRecordOptional.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
+        // 請假單存在 -> 身分驗證
         LeaveRecordDto existingRecord = leaveRecordOptional.get();
-        Integer recordOwnerId = existingRecord.getEmployeeId();
-        Long currentUserId = userDetails.getEmployeeUser().getEmployeeUserId();
+        Integer recordOwnerId = existingRecord.getEmployeeId(); // 假單主人ID
+        Long currentUserId = userDetails.getEmployeeUser().getEmployeeUserId(); // 目前登入使用者ID
 
+        // 1. boolean 變數宣告
         boolean isOwner = recordOwnerId != null && currentUserId.longValue() == recordOwnerId.longValue();
         boolean hasManageAll = userDetails.getAuthorities().stream()
                 .anyMatch(auth -> auth.getAuthority().equals("LEAVE_MANAGE_ALL"));
 
+        // 2. 非主人且無高管權限 -> 403 權限不足
         if (!isOwner && !hasManageAll) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-
+        // 3. 身分驗證通過 -> 刪除附件
         leaveRecordService.deleteAttachment(leaveRecordUuid, filename);
-
         return ResponseEntity.noContent().build();
     }
 
-    // 尚未實現
-    @Operation(summary = "獲取當前用戶的剩餘特休時數", description = "計算並返回當前登入使用者的剩餘特休時數")
+    @Operation(summary = "獲取當前用戶的剩餘特休時數", description = "計算並返回當前登入使用者的剩餘特休時數(尚未實現)")
     @GetMapping("/annual-leave-balance")
     public ResponseEntity<Map<String, Double>> getAnnualLeaveBalance(
             @AuthenticationPrincipal EmployeeUserDetails userDetails) {

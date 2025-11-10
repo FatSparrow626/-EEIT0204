@@ -36,7 +36,8 @@ import java.util.Arrays;
  */
 
 @Configuration // 標記為 Spring 配置類別，會被 Spring 容器掃描和管理
-@EnableWebSecurity // 啟用 Spring Security 的 Web 安全支持
+@EnableWebSecurity // 啟用 Spring Security 預設的「安檢流水線
+                   // (SecurityFilterChain)」、這個流水線上預設的「安檢站(UsernamePasswordAuthenticationFilter)」
 @EnableMethodSecurity // 啟用方法級別的安全性註解，允許在方法上使用 @PreAuthorize、@Secured 等註解，支援細粒度的權限控制
 public class SecurityConfig {
 
@@ -59,8 +60,10 @@ public class SecurityConfig {
     }
 
     /**
-     * 製造身分驗證提供者（身分證驗證機）
-     * 負責檢查使用者的帳號密碼是否正確
+     * 製造認證提供者（帳號密碼檢查員）
+     * 接收傳入的 username 和 password -> 透過 userDetailsService(我們開發者提供) 取得資料庫中儲存的加密密碼 ->
+     * 透過
+     * passwordEncoder(Spring提供) 比對密碼是否相符
      */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {// Spring Security 要使用我們設定的身分驗證提供者
@@ -104,7 +107,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 配置會話管理為無狀態 STATELESS：不創建和使用 HTTP 會話，完全依賴 JWT Token 進行認證，符合 REST API 無狀態原則
                 .authorizeHttpRequests(auth -> auth
-                        // 1. 白名單 (一定要先列)
+                        // 1. ====== 白名單 (一定要先列) ======
                         .requestMatchers("/api/auth/**").permitAll() // 允許所有認證相關 API 無需登入
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
@@ -118,7 +121,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/positions", "/api/positions/**").authenticated()
                         // 通訊錄相關 API - 允許所有已登入用戶訪問
                         .requestMatchers(HttpMethod.GET, "/api/employee-users").authenticated()
-                        // 2. 需要權限的 API
+
+                        // 2. ====== 需要權限的 API ======
                         // 員工個別查詢和管理功能
                         .requestMatchers(HttpMethod.GET, "/api/employee-users/**")
                         .hasAnyAuthority("EMPLOYEE_VIEW", "EMPLOYEE_MANAGE")
@@ -247,7 +251,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/picking-orders/**")
                         .hasAuthority("PICKING_ORDER_MANAGE")
 
-                        // 請假管理 API
+                        // ====== 請假管理 API ======
                         .requestMatchers(HttpMethod.GET, "/api/leave/form-data").hasAuthority("LEAVE_APPLY_SELF")
                         .requestMatchers(HttpMethod.GET, "/api/leave/records", "/api/leave/records/**")
                         .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
@@ -259,13 +263,14 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/leave/records/**")
                         .hasAnyAuthority("LEAVE_MANAGE_ALL", "LEAVE_DELETE_SELF")
 
-                        // 請假附件管理 API
+                        // ====== 請假附件管理 API ======
                         .requestMatchers(HttpMethod.GET, "/api/leave/attachments/**")
                         .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
                         .requestMatchers(HttpMethod.POST, "/api/leave/{uuid}/attachments")
                         .hasAnyAuthority("LEAVE_EDIT_SELF", "LEAVE_MANAGE_ALL")
                         .requestMatchers(HttpMethod.DELETE, "/api/leave/attachments/**")
                         .hasAnyAuthority("LEAVE_DELETE_SELF", "LEAVE_MANAGE_ALL")
+
                         // 3. 其他所有 /api/** 都要驗證 (暫時允許所有 /api/** 訪問，用於調試)
                         .requestMatchers("/api/**").permitAll() // 暫時註解掉這行，測試權限控制(暫時先減因為要測試)
                         // .requestMatchers("/api/**").denyAll()// (暫時先加測試用)

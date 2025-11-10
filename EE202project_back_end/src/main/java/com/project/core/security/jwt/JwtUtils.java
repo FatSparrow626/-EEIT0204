@@ -23,6 +23,12 @@ public class JwtUtils {
     @Value("${project.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
+    /**
+     * 生成 JWT 字串
+     * 
+     * @param authentication
+     * @return String JWT 字串
+     */
     public String generateJwtToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
 

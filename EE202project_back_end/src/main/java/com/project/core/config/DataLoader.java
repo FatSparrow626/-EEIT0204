@@ -129,6 +129,7 @@ public class DataLoader implements CommandLineRunner {
         // 行銷管理角色 (展示用)
         Role marketingStaffRole = createRole("MARKETING_STAFF", "Marketing Staff");
         Role marketingManagerRole = createRole("MARKETING_MANAGER", "Marketing Manager");
+
         // Assign Permissions to Roles
         assignPermissionToRole(adminRole, employeeView);
         assignPermissionToRole(adminRole, employeeManage);
