@@ -48,6 +48,11 @@ public class AuthController {
         try {
             // 呼叫AuthenticationManager執行認證
             Authentication authentication = authenticationManager.authenticate(
+                    /** 
+                     * 請authenticationManager建立一個帳號、密碼表單，呼叫的是Username...(Object principal, Object credentials)這個版本，會將isAuthenticated設為false
+                     principal: 使用者名稱、credentials: 密碼
+                     authenticationManager會自動派發工作給SecurityConfig中@Bean設定的DaoAuthenticationProvider，而詳細的principal處理、credential比對，會在SecurityConfig中設定
+                     **/
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);

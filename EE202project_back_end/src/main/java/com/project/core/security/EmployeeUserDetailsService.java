@@ -4,6 +4,7 @@ import com.project.employeeuser.dao.EmployeeUserDAO;
 import com.project.employeeuser.model.EmployeeUser;
 import com.project.core.dao.RolePermissionRepository;
 import com.project.core.dao.UserRoleRepository;
+import com.project.core.model.Role;
 import com.project.core.model.RolePermission;
 import com.project.core.model.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +34,7 @@ public class EmployeeUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         EmployeeUser employeeUser = employeeUserDAO.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("找不到此用戶名稱: " + username));
 
         Integer employeeId = employeeUser.getEmployeeUserId().intValue();
         
@@ -54,18 +55,26 @@ public class EmployeeUserDetailsService implements UserDetailsService {
     }
 
     /**
-     * 載入員工的角色權限
+     * 載入員工的角色權限: 員工 -> 角色 -> 權限
      */
     private Set<String> loadRolePermissions(Integer employeeId) {
+        // 1. 查員工角色
         List<UserRole> userRoles = userRoleRepository.findByEmployeeId(employeeId);
+
+        // 2. 查角色權限並彙總
+        Set<String> rolePermissions = new HashSet<>();
+
+        // 3. 迭代每個角色以獲取其權限
+        for(UserRole userRole : userRoles){
+            List<RolePermission> permissions = rolePermissionRepository.findByRoleId(userRole.getRoleId());
+
+            for(RolePermission permission : permissions){
+                rolePermissions.add(permission.getPermissionCode());
+            }
+        }
         
-        return userRoles.stream()
-                .flatMap(userRole -> {
-                    List<RolePermission> rolePermissions = rolePermissionRepository.findByRoleId(userRole.getRoleId());
-                    return rolePermissions.stream()
-                            .map(RolePermission::getPermissionCode);
-                })
-                .collect(Collectors.toSet());
+        // 4. 回傳去重後的權限
+        return rolePermissions;
     }
 
 }

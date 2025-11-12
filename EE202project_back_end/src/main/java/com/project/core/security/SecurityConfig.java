@@ -61,9 +61,7 @@ public class SecurityConfig {
 
     /**
      * 製造認證提供者（帳號密碼檢查員）
-     * 接收傳入的 username 和 password -> 透過 userDetailsService(我們開發者提供) 取得資料庫中儲存的加密密碼 ->
-     * 透過
-     * passwordEncoder(Spring提供) 比對密碼是否相符
+     * 接收傳入的 username 和 password -> 透過 userDetailsService(我們開發者提供) 取得資料庫中儲存的加密密碼 -> 透過passwordEncoder(Spring提供) 比對密碼是否相符
      */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {// Spring Security 要使用我們設定的身分驗證提供者
