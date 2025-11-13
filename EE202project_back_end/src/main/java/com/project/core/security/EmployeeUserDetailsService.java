@@ -4,7 +4,6 @@ import com.project.employeeuser.dao.EmployeeUserDAO;
 import com.project.employeeuser.model.EmployeeUser;
 import com.project.core.dao.RolePermissionRepository;
 import com.project.core.dao.UserRoleRepository;
-import com.project.core.model.Role;
 import com.project.core.model.RolePermission;
 import com.project.core.model.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +15,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class EmployeeUserDetailsService implements UserDetailsService {
@@ -30,27 +28,34 @@ public class EmployeeUserDetailsService implements UserDetailsService {
     @Autowired
     private RolePermissionRepository rolePermissionRepository;
 
-
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         EmployeeUser employeeUser = employeeUserDAO.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("找不到此用戶名稱: " + username));
 
         Integer employeeId = employeeUser.getEmployeeUserId().intValue();
-        
-        // 1. 載入角色權限
+
+        // 1. 先準備 GrantedAuthority 列表 (Spring Security 授權只認得這個GrantedAuthority介面)
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        // 2. 查角色權限 -> 以權限授權 (支援以權限讓Spring授權)
         Set<String> rolePermissions = loadRolePermissions(employeeId);
-        
-        // 2. 轉換為 GrantedAuthority
-        List<GrantedAuthority> authorities = rolePermissions.stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
 
-        // 3. 添加角色作為權限 (保持向後相容性)
+        for (String permission : rolePermissions) {
+            GrantedAuthority authority = new SimpleGrantedAuthority(permission);
+            authorities.add(authority);
+        }
+
+        // 3. 查用戶角色 -> 以角色授權 (支援以角色讓Spring授權-Spring預設) (保持向後相容性)
         List<UserRole> userRoles = userRoleRepository.findByEmployeeId(employeeId);
-        userRoles.forEach(userRole -> 
-            authorities.add(new SimpleGrantedAuthority("ROLE_" + userRole.getRoleId())));
 
+        for (UserRole userRole : userRoles) {
+            String role = userRole.getRoleId().toString();
+            GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+            authorities.add(authority);
+        }
+
+        // 傳回自訂的UserDetails實作 (loadUserByUsername的回傳型態由UserDetails介面定義)
         return new EmployeeUserDetails(employeeUser, authorities);
     }
 
@@ -65,14 +70,13 @@ public class EmployeeUserDetailsService implements UserDetailsService {
         Set<String> rolePermissions = new HashSet<>();
 
         // 3. 迭代每個角色以獲取其權限
-        for(UserRole userRole : userRoles){
+        for (UserRole userRole : userRoles) {
             List<RolePermission> permissions = rolePermissionRepository.findByRoleId(userRole.getRoleId());
 
-            for(RolePermission permission : permissions){
+            for (RolePermission permission : permissions) {
                 rolePermissions.add(permission.getPermissionCode());
             }
         }
-        
         // 4. 回傳去重後的權限
         return rolePermissions;
     }
