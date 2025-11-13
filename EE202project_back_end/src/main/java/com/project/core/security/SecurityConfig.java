@@ -47,11 +47,8 @@ public class SecurityConfig {
     @Autowired
     private AuthEntryPointJwt unauthorizedHandler; // 注入未授權處理器- 當用戶未登入或 Token 無效時的處理邏輯
 
-    // 【已修正】@Bean 方法本身不應該有 @Autowired 註解。
-    // Spring 會自動將這個 Bean 注入到需要它的地方。
-
     /**
-     * 製造 JWT Token 檢查器（門口警衛）
+     * 向IoC容器註冊: 製造 JWT Token 檢查器（門口警衛）
      * 每個 API 請求都會先經過這個警衛檢查身分證（JWT token）
      */
     @Bean
@@ -60,28 +57,29 @@ public class SecurityConfig {
     }
 
     /**
-     * 製造認證提供者（帳號密碼檢查員）
-     * 接收傳入的 username 和 password -> 透過 userDetailsService(我們開發者提供) 取得資料庫中儲存的加密密碼 -> 透過passwordEncoder(Spring提供) 比對密碼是否相符
+     * 向IoC容器註冊: 授權經理（負責在Controller填表單->派工作給適合的授權操作員）
+     * 負責協調各種認證方式
      */
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {// Spring Security 要使用我們設定的身分驗證提供者
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();// 創建基於資料庫的認證提供者
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
+        return authConfig.getAuthenticationManager();
+    }
+
+    /**
+     * 向IoC容器註冊: 實際的授權操作員（帳號密碼檢查員）
+     * 接收傳入的 username 和 password->透過 userDetailsService(我們開發者提供實作)
+     * 取得資料庫中儲存的加密密碼->透過passwordEncoder(Spring提供)比對密碼是否相符
+     */
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {// Spring Security 提供的基於資料庫的認證提供者
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService); // 設定用戶詳情服務，用於載入用戶資訊
         authProvider.setPasswordEncoder(passwordEncoder()); // 設定密碼編碼器，用於驗證密碼
         return authProvider;
     }
 
     /**
-     * 製造認證管理員（認證協調中心）
-     * 負責協調各種認證方式
-     */
-    @Bean // 配置認證管理器 - Spring Security 的核心認證組件- 在登入時用於驗證用戶憑證
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
-    }
-
-    /**
-     * 製造密碼加密器（密碼保險箱）
+     * 向IoC容器註冊: 製造密碼加密器（密碼保險箱）
      * 負責把明文密碼加密，或檢查密碼是否正確
      */
     @Bean // 配置密碼編碼器
@@ -90,7 +88,28 @@ public class SecurityConfig {
     }
 
     /**
-     * 製造安全過濾鏈（整個安全檢查流程）
+     * 設定CORS來源（跨域存取規則）
+     * 決定哪些網站可以呼叫我們的 API
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // 允許的來源清單
+        configuration.setAllowedOrigins(
+                Arrays.asList("http://localhost:5173", "http://172.22.34.82:5173"));
+        // 允許的 HTTP 方法
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // 允許所有 HTTP 標頭
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        // 允許傳送憑證(如:Cookies、Authorization、headers)
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+
+    /**
+     * 安全過濾鏈（整個安全檢查流程）
      * 這是最重要的方法，定義了所有安全規則
      */
     @Bean
@@ -283,26 +302,6 @@ public class SecurityConfig {
 
         return http.build();
         // 建立並返回配置好的安全過濾器鏈
-    }
-
-    /**
-     * 製造 CORS 設定來源（跨域存取規則）
-     * 決定哪些網站可以呼叫我們的 API
-     */
-    @Bean // 配置允許的前端來源
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(
-                Arrays.asList("http://localhost:5173", "http://172.22.34.82:5173")); // 配置允許的前端來源
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));// 允許的 HTTP 方法
-        configuration.setAllowedHeaders(Arrays.asList("*"));// 允許所有 HTTP 標頭
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); // 允許傳送憑證 (如
-                                                                                        // Cookies、Authorization
-                                                                                        // headers)
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
     }
 }
 
