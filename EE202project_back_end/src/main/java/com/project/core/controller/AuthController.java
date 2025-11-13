@@ -75,9 +75,10 @@ public class AuthController {
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         
                         /**
-                         * 
+                         * 回傳jwt字串
                          */
                         String jwt = jwtUtils.generateJwtToken(authentication);
+
 
                         EmployeeUserDetails userDetails = (EmployeeUserDetails) authentication.getPrincipal();
                         EmployeeUser employeeUser = userDetails.getEmployeeUser();
@@ -97,13 +98,17 @@ public class AuthController {
                                         request.getHeader("User-Agent"),
                                         "AUTH");
 
-                        return ResponseEntity.ok(new JwtResponse(jwt,
+                        return ResponseEntity.ok(
+                                        new JwtResponse(
+                                        // JwtResponse唯一必須的
+                                        jwt,
+                                        // 剩下端看前端需求
                                         employeeUser.getEmployeeUserId().intValue(),
                                         employeeUser.getUsername(),
                                         employeeUser.getEmail(),
                                         employeeUser.getEmployeeType().name(),
                                         userDetails.getAuthorities().stream()
-                                                        .map(GrantedAuthority::getAuthority)
+                                                        .map(authority -> authority.getAuthority())
                                                         .collect(Collectors.toList())));
                 } catch (Exception e) {
                         systemLogService.log(
