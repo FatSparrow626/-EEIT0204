@@ -51,11 +51,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                  *   .setAuthentication(authentication): 就是拿員工ID卡去開門。
                  */
                 
-                // 3. 收集所需資料
+                // 3. 收集所需資料(已經可以放回認證中心了)
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
+
+                // optional: 將request的額外資訊，如IP、session ID等，傳入認證中心        
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 // 4. 將"已通過的憑證"傳入認證中心
