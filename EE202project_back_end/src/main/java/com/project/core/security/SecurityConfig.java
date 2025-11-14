@@ -36,8 +36,7 @@ import java.util.Arrays;
  */
 
 @Configuration // 標記為 Spring 配置類別，會被 Spring 容器掃描和管理
-@EnableWebSecurity // 啟用 Spring Security 預設的「安檢流水線
-                   // (SecurityFilterChain)」、這個流水線上預設的「安檢站(UsernamePasswordAuthenticationFilter)」
+@EnableWebSecurity // 開啟Spring Security 有開才能向容器註冊Spring Security Filter Chain，啟用 Spring Security 預設的「安檢流水線(SecurityFilterChain)」、這個流水線上預設的「安檢站(UsernamePasswordAuthenticationFilter)」
 @EnableMethodSecurity // 啟用方法級別的安全性註解，允許在方法上使用 @PreAuthorize、@Secured 等註解，支援細粒度的權限控制
 public class SecurityConfig {
 
@@ -109,197 +108,193 @@ public class SecurityConfig {
     }
 
     /**
-     * 安全過濾鏈（整個安全檢查流程）
+     * Spring Security過濾鏈（整個安全檢查流程）
      * 這是最重要的方法，定義了所有安全規則
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                // 禁用 CSRF (跨站請求偽造) 保護 ，因為使用 JWT 進行無狀態認證，不需要 CSRF 保護， REST API 通常不使用 CSRF 保護
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // 啟用 CORS 配置- 允許前端跨域請求後端 API- 配置來源由 corsConfigurationSource() 方法定義
-                .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-                // 設定異常處理 - 當用戶未認證時，由 unauthorizedHandler 處理，通常返回 401 Unauthorized 狀態碼
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 配置會話管理為無狀態 STATELESS：不創建和使用 HTTP 會話，完全依賴 JWT Token 進行認證，符合 REST API 無狀態原則
-                .authorizeHttpRequests(auth -> auth
-                        // 1. ====== 白名單 (一定要先列) ======
-                        .requestMatchers("/api/auth/**").permitAll() // 允許所有認證相關 API 無需登入
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/order/addForm").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/employee-users/reset-password").permitAll()
-                        // WebSocket 相關路徑
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/api/websocket/**").permitAll()
-                        .requestMatchers("/api/profile/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/departments", "/api/departments/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/positions", "/api/positions/**").authenticated()
-                        // 通訊錄相關 API - 允許所有已登入用戶訪問
-                        .requestMatchers(HttpMethod.GET, "/api/employee-users").authenticated()
-
-                        // 2. ====== 需要權限的 API ======
-                        // 員工個別查詢和管理功能
-                        .requestMatchers(HttpMethod.GET, "/api/employee-users/**")
-                        .hasAnyAuthority("EMPLOYEE_VIEW", "EMPLOYEE_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/employee-users").hasAuthority("EMPLOYEE_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/employee-users/**").hasAuthority("EMPLOYEE_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/employee-users/**").hasAuthority("EMPLOYEE_MANAGE")
-                        // 系統
-                        .requestMatchers(HttpMethod.GET, "/api/system-logs", "/api/system-logs/**")
-                        .hasAnyAuthority("SYSTEM_LOG_VIEW", "SYSTEM_LOG_MANAGE")
-                        .requestMatchers("/api/system-logs/**").hasAuthority("SYSTEM_LOG_MANAGE")
-
-                        // 物料管理權限
-                        .requestMatchers(HttpMethod.GET, "/api/depot/materials", "/api/depot/materials/**")
-                        .hasAuthority("INVENTORY_VIEW")
-                        .requestMatchers(HttpMethod.POST, "/api/depot/materials").hasAuthority("INVENTORY_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/depot/materials/**").hasAuthority("INVENTORY_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/depot/materials/**").hasAuthority("INVENTORY_MANAGE")
-
-                        // 庫存異動紀錄權限
-                        .requestMatchers(HttpMethod.GET, "/api/depot/transactions")
-                        .hasAuthority("INVENTORY_HISTORY_VIEW")
-
-                        // 入庫單權限
-                        .requestMatchers(HttpMethod.GET, "/api/depot/inbound-receipts",
-                                "/api/depot/inbound-receipts/**")
-                        .hasAnyAuthority("INBOUND_VIEW", "INBOUND_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/depot/inbound-receipts").hasAuthority("INBOUND_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/depot/inbound-receipts/**")
-                        .hasAuthority("INBOUND_MANAGE")
-
-                        // 供應商管理 API
-                        .requestMatchers(HttpMethod.GET, "/api/supplier/list", "/api/supplier/{id}")
-                        .hasAnyAuthority("SUPPLIER_VIEW", "SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/supplier/add").hasAuthority("SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/supplier/update").hasAuthority("SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/supplier/{id}").hasAuthority("SUPPLIER_MANAGE")
-
-                        // 採購訂單 API
-                        .requestMatchers(HttpMethod.GET, "/api/order/list", "/api/order/edit/**",
-                                "/api/order/supplier-ratio", "/api/order/amount-per-month")
-                        .hasAnyAuthority("SUPPLIER_VIEW", "SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/order/insert").hasAuthority("SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/order/update").hasAuthority("SUPPLIER_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/order/delete/**").hasAuthority("SUPPLIER_MANAGE")
-
-                        // 工單管理 API
-                        .requestMatchers(HttpMethod.GET, "/api/workorder", "/api/workorder/**",
-                                "/api/workorder/{woId}/materials")
-                        .hasAnyAuthority("WORKORDER_VIEW", "WORKORDER_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/workorder", "/api/workorder/picking")
-                        .hasAuthority("WORKORDER_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/workorder/**").hasAuthority("WORKORDER_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/workorder/**").hasAuthority("WORKORDER_MANAGE")
-
-                        // BOM 管理 API
-                        .requestMatchers(HttpMethod.GET, "/api/boms/**").hasAnyAuthority("BOM_VIEW", "BOM_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/boms/add").hasAuthority("BOM_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/boms/update").hasAuthority("BOM_MANAGE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/boms/**").hasAuthority("BOM_MANAGE")
-
-                        // === 機台管理模組 ===
-                        // 機台查詢 - 管理員、一般員工
-                        .requestMatchers(HttpMethod.GET, "/api/machine/**")
-                        .hasAnyAuthority("MACHINE_VIEW", "MACHINE_MANAGE")
-
-                        // 機台新增 - 僅管理員可新增機台設備資料
-                        .requestMatchers(HttpMethod.POST, "/api/machine").hasAuthority("MACHINE_MANAGE")
-
-                        // 機台更新 - 僅管理員可修改機台設備資料和參數設定
-                        .requestMatchers(HttpMethod.PUT, "/api/machine/**").hasAuthority("MACHINE_MANAGE")
-
-                        // 機台刪除 - 僅管理員可刪除機台設備資料（需謹慎操作）
-                        .requestMatchers(HttpMethod.DELETE, "/api/machine/**").hasAuthority("MACHINE_MANAGE")
-
-                        // === 機台檔案管理模組 ===
-                        // 檔案查詢下載 - 管理員和一般員工均可查看和下載機台相關技術文件
-                        .requestMatchers(HttpMethod.GET, "/api/files/**")
-                        .hasAnyAuthority("MACHINE_FILE_VIEW", "MACHINE_FILE_MANAGE")
-
-                        // 檔案上傳 - 僅管理員可上傳機台技術文件、操作手冊等資料
-                        .requestMatchers(HttpMethod.POST, "/api/files").hasAuthority("MACHINE_FILE_MANAGE")
-
-                        // 檔案更新 - 僅管理員可更新機台檔案資訊和內容
-                        .requestMatchers(HttpMethod.PUT, "/api/files/**").hasAuthority("MACHINE_FILE_MANAGE")
-
-                        // 檔案刪除 - 僅管理員可刪除過期或錯誤的機台檔案
-                        .requestMatchers(HttpMethod.DELETE, "/api/files/**").hasAuthority("MACHINE_FILE_MANAGE")
-
-                        // === 機台維修管理模組 ===
-                        // 維修記錄查詢 - 管理員可查看所有維修記錄，一般員工可查看自己提交的維修申請
-                        .requestMatchers(HttpMethod.GET, "/api/repair/**")
-                        .hasAnyAuthority("REPAIR_VIEW", "REPAIR_MANAGE")
-
-                        // 維修申請表單 - 一般員工可填寫維修申請
-                        .requestMatchers(HttpMethod.POST, "/api/repair").hasAuthority("REPAIR_CREATE")
-
-                        // 管理員維修管理 - 管理員可更新維修狀態和查看管理介面
-                        .requestMatchers(HttpMethod.PUT, "/api/repair/**").hasAuthority("REPAIR_MANAGE")
-
-                        // === 機台保養管理模組 ===
-                        // 保養記錄查詢 - 管理員可查看所有保養記錄，一般員工可查看相關保養計劃
-                        .requestMatchers(HttpMethod.GET, "/api/maintenance/**")
-                        .hasAnyAuthority("MAINTENANCE_VIEW", "MAINTENANCE_MANAGE")
-
-                        // 保養計劃建立 - 僅管理員可建立機台定期保養計劃和臨時保養任務
-                        .requestMatchers(HttpMethod.POST, "/api/maintenance").hasAuthority("MAINTENANCE_MANAGE")
-
-                        // 保養記錄更新 - 僅管理員可更新保養狀態和執行結果
-                        .requestMatchers(HttpMethod.PUT, "/api/maintenance/**")
-                        .hasAuthority("MAINTENANCE_MANAGE")
-
-                        // 保養計劃刪除 - 僅管理員可刪除錯誤或過期的保養計劃
-                        .requestMatchers(HttpMethod.DELETE, "/api/maintenance/**")
-                        .hasAuthority("MAINTENANCE_MANAGE")
-
-                        // 物料管理 API
-                        .requestMatchers(HttpMethod.GET, "/api/material/**")
-                        .hasAnyAuthority("MATERIAL_VIEW", "MATERIAL_MANAGE")
-
-                        // 領料單管理 API
-                        .requestMatchers(HttpMethod.GET, "/api/picking-orders/**")
-                        .hasAnyAuthority("PICKING_ORDER_VIEW", "PICKING_ORDER_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/picking-orders").hasAuthority("PICKING_ORDER_MANAGE")
-                        .requestMatchers(HttpMethod.PUT, "/api/picking-orders/**")
-                        .hasAnyAuthority("PICKING_ORDER_MANAGE", "PICKING_ORDER_APPROVE")
-                        .requestMatchers(HttpMethod.DELETE, "/api/picking-orders/**")
-                        .hasAuthority("PICKING_ORDER_MANAGE")
-
-                        // ====== 請假管理 API ======
-                        .requestMatchers(HttpMethod.GET, "/api/leave/form-data").hasAuthority("LEAVE_APPLY_SELF")
-                        .requestMatchers(HttpMethod.GET, "/api/leave/records", "/api/leave/records/**")
-                        .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
-                        .requestMatchers(HttpMethod.POST, "/api/leave/records").hasAuthority("LEAVE_APPLY_SELF")
-                        .requestMatchers(HttpMethod.PUT, "/api/leave/records/{uuid}/status")
-                        .hasAuthority("LEAVE_APPROVE")
-                        .requestMatchers(HttpMethod.PUT, "/api/leave/records/**")
-                        .hasAnyAuthority("LEAVE_MANAGE_ALL", "LEAVE_EDIT_SELF")
-                        .requestMatchers(HttpMethod.DELETE, "/api/leave/records/**")
-                        .hasAnyAuthority("LEAVE_MANAGE_ALL", "LEAVE_DELETE_SELF")
-
-                        // ====== 請假附件管理 API ======
-                        .requestMatchers(HttpMethod.GET, "/api/leave/attachments/**")
-                        .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
-                        .requestMatchers(HttpMethod.POST, "/api/leave/{uuid}/attachments")
-                        .hasAnyAuthority("LEAVE_EDIT_SELF", "LEAVE_MANAGE_ALL")
-                        .requestMatchers(HttpMethod.DELETE, "/api/leave/attachments/**")
-                        .hasAnyAuthority("LEAVE_DELETE_SELF", "LEAVE_MANAGE_ALL")
-
-                        // 3. 其他所有 /api/** 都要驗證 (暫時允許所有 /api/** 訪問，用於調試)
-                        .requestMatchers("/api/**").permitAll() // 暫時註解掉這行，測試權限控制(暫時先減因為要測試)
-                        // .requestMatchers("/api/**").denyAll()// (暫時先加測試用)
-
-                        // 4. 非 API 路徑 (前端路徑) 全部放行其他所有請求都允許訪 - 主要是前端路由，不需要後端驗證
-                        .anyRequest().permitAll());
-
-        http.authenticationProvider(authenticationProvider()); // 註冊認證提供者 - 將自定義的認證提供者加入到 Spring Security
+        // 註冊認證提供者 - 將自定義的認證提供者加入到 Spring Security
+        http.authenticationProvider(authenticationProvider()); 
+        // 將 JWT Token 過濾器加入到過濾器鏈中，官方推薦唯一位置 放UsernamePasswordAuthenticationFilter之前，這樣每個請求都會先經過 JWT 驗證
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-        // 將 JWT Token 過濾器加入到過濾器鏈中，位置在 UsernamePasswordAuthenticationFilter
-        // 之前，這樣每個請求都會先經過 JWT 驗證
+        http.csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // 啟用 CORS 配置- 允許前端跨域請求後端 API- 配置來源由 corsConfigurationSource() 方法定義
+            .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
+            // 設定異常處理 - 當用戶未認證時，由 unauthorizedHandler 處理，通常返回 401 Unauthorized 狀態碼
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // session政策為無狀態 STATELESS，完全依賴JWT
+            .authorizeHttpRequests(request -> request
+                    // 1. ====== 白名單 (一定要先列) ======
+                    .requestMatchers("/api/auth/**").permitAll() // 允許所有認證相關 API 無需登入
+                    .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                    .requestMatchers(HttpMethod.GET, "/api/order/addForm").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/employee-users/reset-password").permitAll()
+                    // WebSocket 相關路徑
+                    .requestMatchers("/ws/**").permitAll()
+                    .requestMatchers("/api/websocket/**").permitAll()
+                    .requestMatchers("/api/profile/**").authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/departments", "/api/departments/**").authenticated()
+                    .requestMatchers(HttpMethod.GET, "/api/positions", "/api/positions/**").authenticated()
+                    // 通訊錄相關 API - 允許所有已登入用戶訪問
+                    .requestMatchers(HttpMethod.GET, "/api/employee-users").authenticated()
 
+                    // 2. ====== 需要權限的 API ======
+                    // 員工個別查詢和管理功能
+                    .requestMatchers(HttpMethod.GET, "/api/employee-users/**")
+                    .hasAnyAuthority("EMPLOYEE_VIEW", "EMPLOYEE_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/employee-users").hasAuthority("EMPLOYEE_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/employee-users/**").hasAuthority("EMPLOYEE_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/employee-users/**").hasAuthority("EMPLOYEE_MANAGE")
+                    // 系統
+                    .requestMatchers(HttpMethod.GET, "/api/system-logs", "/api/system-logs/**")
+                    .hasAnyAuthority("SYSTEM_LOG_VIEW", "SYSTEM_LOG_MANAGE")
+                    .requestMatchers("/api/system-logs/**").hasAuthority("SYSTEM_LOG_MANAGE")
+
+                    // 物料管理權限
+                    .requestMatchers(HttpMethod.GET, "/api/depot/materials", "/api/depot/materials/**")
+                    .hasAuthority("INVENTORY_VIEW")
+                    .requestMatchers(HttpMethod.POST, "/api/depot/materials").hasAuthority("INVENTORY_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/depot/materials/**").hasAuthority("INVENTORY_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/depot/materials/**").hasAuthority("INVENTORY_MANAGE")
+
+                    // 庫存異動紀錄權限
+                    .requestMatchers(HttpMethod.GET, "/api/depot/transactions")
+                    .hasAuthority("INVENTORY_HISTORY_VIEW")
+
+                    // 入庫單權限
+                    .requestMatchers(HttpMethod.GET, "/api/depot/inbound-receipts",
+                            "/api/depot/inbound-receipts/**")
+                    .hasAnyAuthority("INBOUND_VIEW", "INBOUND_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/depot/inbound-receipts").hasAuthority("INBOUND_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/depot/inbound-receipts/**")
+                    .hasAuthority("INBOUND_MANAGE")
+
+                    // 供應商管理 API
+                    .requestMatchers(HttpMethod.GET, "/api/supplier/list", "/api/supplier/{id}")
+                    .hasAnyAuthority("SUPPLIER_VIEW", "SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/supplier/add").hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/supplier/update").hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/supplier/{id}").hasAuthority("SUPPLIER_MANAGE")
+
+                    // 採購訂單 API
+                    .requestMatchers(HttpMethod.GET, "/api/order/list", "/api/order/edit/**",
+                            "/api/order/supplier-ratio", "/api/order/amount-per-month")
+                    .hasAnyAuthority("SUPPLIER_VIEW", "SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/order/insert").hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/order/update").hasAuthority("SUPPLIER_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/order/delete/**").hasAuthority("SUPPLIER_MANAGE")
+
+                    // 工單管理 API
+                    .requestMatchers(HttpMethod.GET, "/api/workorder", "/api/workorder/**",
+                            "/api/workorder/{woId}/materials")
+                    .hasAnyAuthority("WORKORDER_VIEW", "WORKORDER_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/workorder", "/api/workorder/picking")
+                    .hasAuthority("WORKORDER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/workorder/**").hasAuthority("WORKORDER_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/workorder/**").hasAuthority("WORKORDER_MANAGE")
+
+                    // BOM 管理 API
+                    .requestMatchers(HttpMethod.GET, "/api/boms/**").hasAnyAuthority("BOM_VIEW", "BOM_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/boms/add").hasAuthority("BOM_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/boms/update").hasAuthority("BOM_MANAGE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/boms/**").hasAuthority("BOM_MANAGE")
+
+                    // === 機台管理模組 ===
+                    // 機台查詢 - 管理員、一般員工
+                    .requestMatchers(HttpMethod.GET, "/api/machine/**")
+                    .hasAnyAuthority("MACHINE_VIEW", "MACHINE_MANAGE")
+
+                    // 機台新增 - 僅管理員可新增機台設備資料
+                    .requestMatchers(HttpMethod.POST, "/api/machine").hasAuthority("MACHINE_MANAGE")
+
+                    // 機台更新 - 僅管理員可修改機台設備資料和參數設定
+                    .requestMatchers(HttpMethod.PUT, "/api/machine/**").hasAuthority("MACHINE_MANAGE")
+
+                    // 機台刪除 - 僅管理員可刪除機台設備資料（需謹慎操作）
+                    .requestMatchers(HttpMethod.DELETE, "/api/machine/**").hasAuthority("MACHINE_MANAGE")
+
+                    // === 機台檔案管理模組 ===
+                    // 檔案查詢下載 - 管理員和一般員工均可查看和下載機台相關技術文件
+                    .requestMatchers(HttpMethod.GET, "/api/files/**")
+                    .hasAnyAuthority("MACHINE_FILE_VIEW", "MACHINE_FILE_MANAGE")
+
+                    // 檔案上傳 - 僅管理員可上傳機台技術文件、操作手冊等資料
+                    .requestMatchers(HttpMethod.POST, "/api/files").hasAuthority("MACHINE_FILE_MANAGE")
+
+                    // 檔案更新 - 僅管理員可更新機台檔案資訊和內容
+                    .requestMatchers(HttpMethod.PUT, "/api/files/**").hasAuthority("MACHINE_FILE_MANAGE")
+
+                    // 檔案刪除 - 僅管理員可刪除過期或錯誤的機台檔案
+                    .requestMatchers(HttpMethod.DELETE, "/api/files/**").hasAuthority("MACHINE_FILE_MANAGE")
+
+                    // === 機台維修管理模組 ===
+                    // 維修記錄查詢 - 管理員可查看所有維修記錄，一般員工可查看自己提交的維修申請
+                    .requestMatchers(HttpMethod.GET, "/api/repair/**")
+                    .hasAnyAuthority("REPAIR_VIEW", "REPAIR_MANAGE")
+
+                    // 維修申請表單 - 一般員工可填寫維修申請
+                    .requestMatchers(HttpMethod.POST, "/api/repair").hasAuthority("REPAIR_CREATE")
+
+                    // 管理員維修管理 - 管理員可更新維修狀態和查看管理介面
+                    .requestMatchers(HttpMethod.PUT, "/api/repair/**").hasAuthority("REPAIR_MANAGE")
+
+                    // === 機台保養管理模組 ===
+                    // 保養記錄查詢 - 管理員可查看所有保養記錄，一般員工可查看相關保養計劃
+                    .requestMatchers(HttpMethod.GET, "/api/maintenance/**")
+                    .hasAnyAuthority("MAINTENANCE_VIEW", "MAINTENANCE_MANAGE")
+
+                    // 保養計劃建立 - 僅管理員可建立機台定期保養計劃和臨時保養任務
+                    .requestMatchers(HttpMethod.POST, "/api/maintenance").hasAuthority("MAINTENANCE_MANAGE")
+
+                    // 保養記錄更新 - 僅管理員可更新保養狀態和執行結果
+                    .requestMatchers(HttpMethod.PUT, "/api/maintenance/**")
+                    .hasAuthority("MAINTENANCE_MANAGE")
+
+                    // 保養計劃刪除 - 僅管理員可刪除錯誤或過期的保養計劃
+                    .requestMatchers(HttpMethod.DELETE, "/api/maintenance/**")
+                    .hasAuthority("MAINTENANCE_MANAGE")
+
+                    // 物料管理 API
+                    .requestMatchers(HttpMethod.GET, "/api/material/**")
+                    .hasAnyAuthority("MATERIAL_VIEW", "MATERIAL_MANAGE")
+
+                    // 領料單管理 API
+                    .requestMatchers(HttpMethod.GET, "/api/picking-orders/**")
+                    .hasAnyAuthority("PICKING_ORDER_VIEW", "PICKING_ORDER_MANAGE")
+                    .requestMatchers(HttpMethod.POST, "/api/picking-orders").hasAuthority("PICKING_ORDER_MANAGE")
+                    .requestMatchers(HttpMethod.PUT, "/api/picking-orders/**")
+                    .hasAnyAuthority("PICKING_ORDER_MANAGE", "PICKING_ORDER_APPROVE")
+                    .requestMatchers(HttpMethod.DELETE, "/api/picking-orders/**")
+                    .hasAuthority("PICKING_ORDER_MANAGE")
+
+                    // ====== 請假管理 API ======
+                    .requestMatchers(HttpMethod.GET, "/api/leave/form-data").hasAuthority("LEAVE_APPLY_SELF")
+                    .requestMatchers(HttpMethod.GET, "/api/leave/records/**")
+                    .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
+                    .requestMatchers(HttpMethod.POST, "/api/leave/records").hasAuthority("LEAVE_APPLY_SELF")
+                    .requestMatchers(HttpMethod.PUT, "/api/leave/records/{uuid}/status")
+                    .hasAuthority("LEAVE_APPROVE")
+                    .requestMatchers(HttpMethod.PUT, "/api/leave/records/**")
+                    .hasAnyAuthority("LEAVE_MANAGE_ALL", "LEAVE_EDIT_SELF")
+                    .requestMatchers(HttpMethod.DELETE, "/api/leave/records/**")
+                    .hasAnyAuthority("LEAVE_MANAGE_ALL", "LEAVE_DELETE_SELF")
+
+                    // ====== 請假附件管理 API ======
+                    .requestMatchers(HttpMethod.GET, "/api/leave/attachments/**")
+                    .hasAnyAuthority("LEAVE_VIEW_SELF", "LEAVE_VIEW_DEPARTMENT", "LEAVE_MANAGE_ALL")
+                    .requestMatchers(HttpMethod.POST, "/api/leave/{uuid}/attachments")
+                    .hasAnyAuthority("LEAVE_EDIT_SELF", "LEAVE_MANAGE_ALL")
+                    .requestMatchers(HttpMethod.DELETE, "/api/leave/attachments/**")
+                    .hasAnyAuthority("LEAVE_DELETE_SELF", "LEAVE_MANAGE_ALL")
+
+                    // 3. 其他所有 /api/** 都要驗證 (暫時允許所有 /api/** 訪問，用於調試)
+                    .requestMatchers("/api/**").permitAll() // 暫時註解掉這行，測試權限控制(暫時先減因為要測試)
+                    // .requestMatchers("/api/**").denyAll()// (暫時先加測試用)
+
+                    // 4. 非 API 路徑 (前端路徑) 全部放行其他所有請求都允許訪 - 主要是前端路由，不需要後端驗證
+                    .anyRequest().permitAll());
         return http.build();
         // 建立並返回配置好的安全過濾器鏈
     }

@@ -49,6 +49,7 @@ public class AuthController {
                         HttpServletRequest request) {
                 try {
                         /**
+                         * Spring Security 內建的UsernamePasswordAuthenticationFilter攔截POST請求
                          * 呼叫AuthenticationManager(授權經理)執行認證，請他建立一個帳號、密碼表單，呼叫的是UsernamePasswordAuthenticationToken(Object
                          * principal, Object credentials)這個建構版本，會將isAuthenticated設為false
                          * principal: 使用者名稱、credentials: 明文密碼
@@ -70,12 +71,12 @@ public class AuthController {
                                         new UsernamePasswordAuthenticationToken(
                                                 loginRequest.getUsername(),loginRequest.getPassword()));
                         /**
-                         * SecurityContextHolder可以想像是Spring Security提供的手機池，.getContext()跟他借用一隻專屬於本次request(Thread local)的手機，.setAuthentication(..)傳入身分證明，啟用這支手機內部功能
+                         * 5. SecurityContextHolder可以想像是Spring Security提供的手機池，.getContext()跟他借用一隻專屬於本次request(Thread local)的手機，.setAuthentication(..)傳入身分證明，啟用這支手機內部功能
                          **/ 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         
                         /**
-                         * 回傳jwt字串
+                         * 6. 只回傳jwt字串給前端
                          */
                         String jwt = jwtUtils.generateJwtToken(authentication);
 

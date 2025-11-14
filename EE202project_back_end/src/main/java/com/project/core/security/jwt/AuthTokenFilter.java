@@ -29,36 +29,42 @@ public class AuthTokenFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        // 放行 /api/auth/** 和 /api/order/addForm
+        // 放行 /api/auth/** 登入、註冊相關，此時還沒攜帶jwt，故不需要驗證
         String path = request.getServletPath();
-        if (path.startsWith("/api/auth/") || path.equals("/api/order/addForm")) {
+        if (path.startsWith("/api/auth/**") || path.equals("/api/order/addForm")) {
+            // 通過此jwtFilter，不需要驗證，直接去下個過濾器
             filterChain.doFilter(request, response);
             return;
         }
+        // JWT 驗證
         try {
             // 1. AuthTokenFilter 自己從請求中解析出 JWT 字串
             String jwt = parseJwt(request);
             // 2. AuthTokenFilter 直接使用它自己的 jwtUtils 工具來驗證 JWT
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
 
-                // 3. 驗證成功後，繼續使用 jwtUtils 來解析出使用者名稱
+                /**
+                 * JWT 驗證成功:
+                 * 最終目的是，往認證中心發送"已通過的憑證"，才能進入特定api小門
+                 * -> SecurityContextHolder.getContext().setAuthentication(authentication); 
+                 *   SecurityContextHolder.getContext(): 可以想像成，認證中心延伸的小門感應器
+                 *   .setAuthentication(authentication): 就是拿員工ID卡去開門。
+                 */
+                
+                // 3. 收集所需資料
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
-
-                // 4. 使用 userDetailsService 工具來載入使用者完整資料
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                // 5. 將使用者資訊打包，放入 SecurityContextHolder，完成本次請求的身分認證
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
+                // 4. 將"已通過的憑證"傳入認證中心
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e);
         }
-
-        // 將請求交給過濾器鏈的下一個過濾器
+        // 5. 執行結束，將請求交給過濾器鏈的下一個過濾器
         filterChain.doFilter(request, response);
     }
 

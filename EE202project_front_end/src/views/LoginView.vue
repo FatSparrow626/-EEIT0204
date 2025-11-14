@@ -36,6 +36,7 @@
       width="500"
       @close="resetForgotPasswordForm"
     >
+
       <!-- 一鍵 -->
       <div class="demo-section" style="margin-bottom: 16px">
         <div style="display: flex; justify-content: flex-end">
