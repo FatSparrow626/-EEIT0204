@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+
+  backend-dev:
+    container_name: backend-dev
+    build:
+      context: ./EE202project_back_end
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./EE202project_back_end/src:/app/src
+      - ~/.m2:/root/.m2
+      - uploads-data:/app/uploads
+    networks:
+      - app-net
+
+  frontend-dev:
+    container_name: frontend-dev
+    build:
+      context: ./EE202project_front_end
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./EE202project_front_end:/app
+      - /app/node_modules
+    depends_on:
+      - backend-dev
+    networks:
+      - app-net
+
+volumes:
+  uploads-data:
+
+networks:
+  app-net:

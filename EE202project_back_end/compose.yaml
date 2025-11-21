@@ -1,0 +1,13 @@
+services:
+  server:
+    build:
+      context: .
+    ports:
+      - "8082:8082"
+    volumes:
+      - uploads-data:/app/uploads
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+volumes:
+  uploads-data:

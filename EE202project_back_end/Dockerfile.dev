@@ -1,0 +1,17 @@
+FROM eclipse-temurin:21-jdk-jammy
+
+WORKDIR /app
+
+COPY mvnw mvnw
+COPY .mvn .mvn
+COPY pom.xml pom.xml
+
+# 較穩定版本（不會遇到 plexus 500）
+RUN ./mvnw -B dependency:resolve dependency:resolve-plugins
+
+# uploads 權限
+RUN mkdir -p /app/uploads && chmod -R 777 /app/uploads
+
+EXPOSE 8082
+
+CMD ["./mvnw", "spring-boot:run"]
