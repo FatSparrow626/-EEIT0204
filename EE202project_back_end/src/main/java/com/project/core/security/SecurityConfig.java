@@ -94,12 +94,16 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // 允許的來源清單
-        configuration.setAllowedOrigins(
-                Arrays.asList("http://localhost:5173", "http://172.22.34.82:5173"));
-        // 允許的 HTTP 方法
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173", 
+            "http://localhost",
+            "http://localhost:80",
+            "http://frontend"
+        ));
+        // 允許的 HTTP 方法、所有 HTTP 標頭
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // 允許所有 HTTP 標頭
         configuration.setAllowedHeaders(Arrays.asList("*"));
+        // 讓 JWT Cookie / Authorization Header 可傳遞
         configuration.setAllowCredentials(true);
         // 允許傳送憑證(如:Cookies、Authorization、headers)
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

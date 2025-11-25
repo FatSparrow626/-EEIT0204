@@ -1,0 +1,17 @@
+services:
+  backend:
+    container_name: backend-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./src:/app/src               # 即時同步程式碼
+      - ./uploads:/app/uploads       # 讓上傳檔案存在你的 Windows 專案裡
+      - m2_cache:/root/.m2           # Maven cache volume（超爆速）
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+
+volumes:
+  m2_cache:

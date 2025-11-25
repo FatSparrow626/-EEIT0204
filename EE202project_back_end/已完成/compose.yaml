@@ -1,10 +1,7 @@
 services:
-  backend:
-    image: backend:prod
-    container_name: backend-prod
+  server:
     build:
       context: .
-      dockerfile: Dockerfile
     ports:
       - "8082:8082"
     volumes:
@@ -14,4 +11,3 @@ services:
 
 volumes:
   uploads-data:
-

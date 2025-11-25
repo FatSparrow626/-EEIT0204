@@ -3,11 +3,10 @@ import router from '@/router'
 
 // Axios預設請求設定
 const api = axios.create({
-  baseURL: 'http://localhost:8082',
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8082",
+  headers: { 'Content-Type': 'application/json' }
 })
+
 
 // 請求攔截器
 // 自動帶 Token + 附件上傳content-type設定(瀏覽器決定)
